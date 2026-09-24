@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lowell Lunch Wheel</title>
+  <style>
+    :root {
+      --bg: #1c1410;
+      --panel: #2a1f18;
+      --ink: #f6efe6;
+      --muted: #c4b4a4;
+      --accent: #e85d04;
+      --gold: #f4a261;
+      --cream: #fff4e6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      background:
+        radial-gradient(1200px 700px at 20% -10%, #4a2c1a 0%, transparent 50%),
+        radial-gradient(900px 600px at 110% 20%, #3d2414 0%, transparent 45%),
+        var(--bg);
+      color: var(--ink);
+      padding: 28px 20px 48px;
+    }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: -0.03em;
+    }
+    header p {
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) 320px;
+      gap: 32px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .stage { grid-template-columns: 1fr; }
+    }
+    .wheel-box {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .pointer {
+      width: 0;
+      height: 0;
+      border-left: 16px solid transparent;
+      border-right: 16px solid transparent;
+      border-top: 28px solid var(--cream);
+      filter: drop-shadow(0 3px 4px rgba(0,0,0,.45));
+      z-index: 3;
+      margin-bottom: -8px;
+    }
+    canvas {
+      width: min(560px, 92vw);
+      height: min(560px, 92vw);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 10px #4a3428,
+        0 0 0 14px #f4a261,
+        0 22px 50px rgba(0,0,0,.45);
+      background: #111;
+    }
+    .controls {
+      margin-top: 22px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      font-family: inherit;
+      font-size: 18px;
+      border: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 12px 26px;
+    }
+    button.spin {
+      background: var(--accent);
+      color: #fff8f0;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(232,93,4,.35);
+    }
+    button.spin:disabled { opacity: .55; cursor: default; }
+    button.ghost {
+      background: transparent;
+      color: var(--cream);
+      border: 1px solid #6b5244;
+    }
+    .result {
+      min-height: 72px;
+      margin-top: 18px;
+      text-align: center;
+    }
+    .result strong {
+      display: block;
+      font-size: 28px;
+      color: var(--gold);
+    }
+    .result a {
+      color: var(--cream);
+      font-size: 15px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid #4a382c;
+      border-radius: 16px;
+      padding: 18px 16px 14px;
+    }
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+    .panel .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 0 12px;
+    }
+    label.item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 4px;
+      border-bottom: 1px solid #3a2b22;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    label.item:last-child { border-bottom: 0; }
+    label.item input { margin-top: 3px; }
+    .cuisine {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .winner-pop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(12,8,6,.62);
+      z-index: 10;
+    }
+    .winner-pop.show { display: grid; }
+    .card {
+      background: var(--cream);
+      color: #2b1b12;
+      padding: 28px 32px 24px;
+      border-radius: 18px;
+      text-align: center;
+      max-width: 420px;
+      width: calc(100% - 32px);
+      box-shadow: 0 20px 50px rgba(0,0,0,.4);
+    }
+    .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: #8a5a32; }
+    .card .name { font-size: 32px; margin: 0 0 8px; }
+    .card p { margin: 0 0 16px; color: #5a4334; }
+    .card a { color: #9b3d08; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Lowell lunch wheel</h1>
+      <p>Local spots within about 15 minutes of 797 W Commercial Ave. Spin it and go eat.</p>
+    </header>
+    <div class="stage">
+      <div class="wheel-box">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="700" height="700"></canvas>
+        <div class="controls">
+          <button class="spin" id="spin">Spin</button>
+          <button class="ghost" id="reset">Use all spots</button>
+        </div>
+        <div class="result" id="result"></div>
+      </div>
+      <aside class="panel">
+        <h2>On the wheel</h2>
+        <p class="hint">Uncheck anything you do not want in the mix.</p>
+        <div id="list"></div>
+      </aside>
+    </div>
+  </div>
+  <div class="winner-pop" id="pop">
+    <div class="card">
+      <h3>Lunch is</h3>
+      <p class="name" id="popName"></p>
+      <p id="popMeta"></p>
+      <div class="controls">
+        <a id="popMaps" target="_blank" rel="noreferrer">Open in Maps</a>
+        <button class="spin" id="again">Spin again</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const ALL = [
+      { name: "George's", cuisine: "Family diner", address: "1910 E Commercial Ave, Lowell, IN" },
+      { name: "Dicky's Dogs", cuisine: "Dogs, burgers, Mexican", address: "108 W Commercial Ave, Lowell, IN" },
+      { name: "Athens Gyros", cuisine: "Greek", address: "116 Mill St, Lowell, IN" },
+      { name: "Schoop's", cuisine: "Burgers", address: "151 Deanna Dr, Lowell, IN" },
+      { name: "Aurelio's Pizza", cuisine: "Pizza", address: "166 Deanna Dr, Lowell, IN" },
+      { name: "Faustino's", cuisine: "Pizza and deli", address: "399 Clark St, Lowell, IN" },
+      { name: "Dee's Corner", cuisine: "Burgers and comfort food", address: "1336 E Commercial Ave, Lowell, IN" },
+      { name: "The Dam Bar & Grill", cuisine: "Pub food", address: "4665 W Main St, Lowell, IN" },
+      { name: "Mexico Chiquito", cuisine: "Mexican", address: "1950 E Commercial Ave, Lowell, IN" },
+      { name: "Lake Dale Ale", cuisine: "Pub food", address: "5512 W Main St, Lowell, IN" },
+      { name: "Don Delfi's", cuisine: "Pancakes and lunch", address: "151 Deanna Dr, Lowell, IN" },
+      { name: "El Salto", cuisine: "Mexican", address: "13019 Wicker Ave, Cedar Lake, IN" },
+      { name: "Corky's", cuisine: "Dogs, Italian beef, burgers", address: "12421 Wicker Ave, Cedar Lake, IN" },
+      { name: "Frank's Backyard BBQ", cuisine: "Barbecue", address: "13106 Wicker Ave, Cedar Lake, IN" }
+    ];
+
+    const COLORS = ["#e85d04","#9b2226","#bb3e03","#ca6702","#ee9b00","#0a9396","#005f73","#6a994e","#bc4749","#7f5539","#d4a373","#386641","#ae2012","#3d405b","#f4a261"];
+
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const listEl = document.getElementById("list");
+    const resultEl = document.getElementById("result");
+    const spinBtn = document.getElementById("spin");
+    const pop = document.getElementById("pop");
+
+    let enabled = ALL.map(() => true);
+    let angle = 0;
+    let spinning = false;
+
+    function active() {
+      return ALL.filter((_, i) => enabled[i]);
+    }
+
+    function mapsUrl(place) {
+      return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place.name + " " + place.address);
+    }
+
+    function draw() {
+      const spots = active();
+      const w = canvas.width;
+      const cx = w / 2;
+      const r = w / 2 - 8;
+      ctx.clearRect(0, 0, w, w);
+      ctx.save();
+      ctx.translate(cx, cx);
+      ctx.rotate(angle);
+
+      if (spots.length === 0) {
+        ctx.fillStyle = "#3a2b22";
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+
+      const slice = (Math.PI * 2) / spots.length;
+      spots.forEach((spot, i) => {
+        const start = i * slice - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, r, start, start + slice);
+        ctx.closePath();
+        ctx.fillStyle = COLORS[ALL.indexOf(spot) % COLORS.length];
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,244,230,.28)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.rotate(start + slice / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff8f0";
+        ctx.font = "bold 22px Iowan Old Style, Palatino, Georgia, serif";
+        ctx.shadowColor = "rgba(0,0,0,.45)";
+        ctx.shadowBlur = 4;
+        const label = spot.name.length > 18 ? spot.name.slice(0, 16) + "…" : spot.name;
+        ctx.fillText(label, r - 22, 8);
+        ctx.restore();
+      });
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 28, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff4e6";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function winnerFromAngle() {
+      const spots = active();
+      if (!spots.length) return null;
+      const slice = (Math.PI * 2) / spots.length;
+      const norm = ((-angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const idx = Math.floor(norm / slice) % spots.length;
+      return spots[idx];
+    }
+
+    function renderList() {
+      listEl.innerHTML = "";
+      ALL.forEach((spot, i) => {
+        const label = document.createElement("label");
+        label.className = "item";
+        label.innerHTML = `<input type="checkbox" ${enabled[i] ? "checked" : ""} />
+          <span>${spot.name}<span class="cuisine">${spot.cuisine} · ${spot.address.split(",")[0]}</span></span>`;
+        label.querySelector("input").addEventListener("change", (e) => {
+          enabled[i] = e.target.checked;
+          draw();
+        });
+        listEl.appendChild(label);
+      });
+    }
+
+    let lastWinner = null;
+
+    function showWinner(place) {
+      lastWinner = place;
+      resultEl.innerHTML = `<strong>${place.name}</strong><a href="${mapsUrl(place)}" target="_blank" rel="noreferrer">${place.address}</a>`;
+      document.getElementById("popName").textContent = place.name;
+      document.getElementById("popMeta").textContent = place.cuisine + " · " + place.address;
+      const a = document.getElementById("popMaps");
+      a.href = mapsUrl(place);
+      const again = document.getElementById("again");
+      const left = active().filter((s) => s !== place).length;
+      again.style.display = left >= 2 ? "" : "none";
+      pop.classList.add("show");
+    }
+
+    function removePlace(place) {
+      const i = ALL.indexOf(place);
+      if (i >= 0) enabled[i] = false;
+      renderList();
+      draw();
+    }
+
+    function spin() {
+      const spots = active();
+      if (spinning || spots.length < 2) return;
+      spinning = true;
+      spinBtn.disabled = true;
+      pop.classList.remove("show");
+      const extra = (Math.PI * 2) * (5 + Math.random() * 4);
+      const start = angle;
+      const duration = 4200 + Math.random() * 800;
+      const t0 = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        angle = start + extra * ease;
+        draw();
+        if (t < 1) requestAnimationFrame(tick);
+        else {
+          spinning = false;
+          spinBtn.disabled = false;
+          showWinner(winnerFromAngle());
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    spinBtn.addEventListener("click", spin);
+    document.getElementById("again").addEventListener("click", () => {
+      if (lastWinner) removePlace(lastWinner);
+      lastWinner = null;
+      pop.classList.remove("show");
+      spin();
+    });
+    document.getElementById("reset").addEventListener("click", () => {
+      enabled = ALL.map(() => true);
+      renderList();
+      draw();
+    });
+    pop.addEventListener("click", (e) => {
+      if (e.target === pop) pop.classList.remove("show");
+    });
+
+    renderList();
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lunch Plinko</title>
+  <style>
+    :root {
+      --bg: #1c1410;
+      --ink: #f6efe6;
+      --muted: #c4b4a4;
+      --accent: #e85d04;
+      --gold: #f4a261;
+      --cream: #fff4e6;
+      --panel: #2a1f18;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body {
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      background:
+        radial-gradient(1200px 700px at 20% -10%, #4a2c1a 0%, transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px 8px;
+      flex-shrink: 0;
+    }
+    header h1 { margin: 0; font-size: clamp(22px, 3vw, 36px); letter-spacing: -0.03em; }
+    header p { margin: 0; color: var(--muted); font-size: 15px; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button {
+      font-family: inherit;
+      font-size: 18px;
+      border: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 11px 24px;
+    }
+    button.drop {
+      background: var(--accent);
+      color: #fff8f0;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(232,93,4,.35);
+    }
+    button.drop:disabled { opacity: .5; cursor: default; }
+    button.ghost {
+      background: transparent;
+      color: var(--cream);
+      border: 1px solid #6b5244;
+    }
+    .stage {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 20px;
+      padding: 16px 32px 24px;
+    }
+    .board-wrap {
+      flex: 0 1 auto;
+      width: min(58vh, calc(100% - 320px));
+      min-width: 260px;
+      min-height: 0;
+      height: 100%;
+    }
+    #board { width: 100%; height: 100%; display: block; cursor: default; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid #5a4336;
+      border-radius: 16px;
+      padding: 0;
+      overflow: hidden;
+      min-height: 0;
+      margin: 8px 0;
+      flex: 0 0 280px;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 32px rgba(0,0,0,.4);
+    }
+    .panel-inner {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 16px 16px 18px;
+      scrollbar-width: thin;
+      scrollbar-color: #6b5244 transparent;
+    }
+    .panel-inner::-webkit-scrollbar { width: 10px; }
+    .panel-inner::-webkit-scrollbar-track {
+      background: transparent;
+      margin: 14px 0;
+    }
+    .panel-inner::-webkit-scrollbar-thumb {
+      background: #6b5244;
+      border-radius: 99px;
+      border: 2px solid var(--panel);
+    }
+    .panel h2 { margin: 0 0 4px; font-size: 18px; }
+    .panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+    .item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 4px 10px;
+      border-bottom: 1px solid #3a2b22;
+      font-size: 15px;
+    }
+    .item:last-child { border-bottom: 0; }
+    .item-top {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      cursor: pointer;
+    }
+    .item-top input { margin-top: 3px; }
+    .cuisine { display: block; color: var(--muted); font-size: 12px; }
+    .stars { display: flex; gap: 1px; }
+    .stars button {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      color: #5a4336;
+      padding: 0 1px;
+      font-size: 16px;
+      line-height: 1;
+      border-radius: 0;
+    }
+    .stars button.on { color: var(--gold); }
+    .notes {
+      width: 100%;
+      background: #1c1410;
+      border: 1px solid #4a382c;
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .notes:focus { outline: 1px solid #6b5244; }
+    .group-label {
+      margin: 14px 0 4px;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .group-label:first-child { margin-top: 2px; }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .winner-pop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(12,8,6,.62);
+      z-index: 10;
+    }
+    .winner-pop.show { display: grid; }
+    .card {
+      background: var(--cream);
+      color: #2b1b12;
+      padding: 28px 36px 24px;
+      border-radius: 18px;
+      text-align: center;
+      max-width: 520px;
+      width: calc(100% - 32px);
+      box-shadow: 0 20px 50px rgba(0,0,0,.4);
+    }
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #8a5a32;
+    }
+    .card .name { font-size: 36px; margin: 0 0 8px; }
+    .card p { margin: 0 0 16px; color: #5a4334; }
+    .card a.maps {
+      display: inline-block;
+      color: #9b3d08;
+      font-size: 17px;
+      margin: 0 0 18px;
+    }
+    .card .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card button.skip {
+      background: #9b3d08;
+      color: #fff8f0;
+      font-weight: 700;
+      width: 100%;
+    }
+    .card button.skip:disabled { opacity: .45; cursor: default; }
+    .card button.ghost {
+      background: #fff8f0;
+      color: #2b1b12;
+      border: 2px solid #9b3d08;
+      width: 100%;
+    }
+    @media (max-width: 860px) {
+      .stage { flex-direction: column; padding: 12px 16px 16px; }
+      .board-wrap { width: 100%; min-width: 0; flex: 1 1 0; }
+      .panel { flex: 0 0 200px; width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Lunch Plinko</h1>
+      <p>Same spots as the Lowell lunch wheel. Drop a chip.</p>
+    </div>
+    <div class="controls">
+      <button class="drop" id="drop">Drop</button>
+      <button class="ghost" id="reset">Use all spots</button>
+    </div>
+  </header>
+  <div class="stage">
+    <div class="board-wrap">
+      <canvas id="board"></canvas>
+    </div>
+    <aside class="panel">
+      <div class="panel-inner">
+        <h2>On the board</h2>
+        <p class="hint">Uncheck to drop a spot. Rate to park favorites in the middle.</p>
+        <div id="list"></div>
+      </div>
+    </aside>
+  </div>
+  <div class="winner-pop" id="pop">
+    <div class="card">
+      <h3>Lunch is</h3>
+      <p class="name" id="popName"></p>
+      <p id="popMeta"></p>
+      <a class="maps" id="popMaps" target="_blank" rel="noreferrer">Open in Maps</a>
+      <div class="actions">
+        <button class="skip" id="popAgain">Drop again without this restaurant</button>
+        <button class="ghost" id="popDrop">Drop</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const GROUPS = ["Pizza", "Mexican", "Fast food", "Diner", "Pub", "Greek", "BBQ"];
+    const ALL = [
+      { name: "Aurelio's Pizza", cuisine: "Pizza", address: "166 Deanna Dr, Lowell, IN", group: "Pizza", color: "#c1121f", rating: 0, review: "" },
+      { name: "Mexico Chiquito", cuisine: "Mexican", address: "1950 E Commercial Ave, Lowell, IN", group: "Mexican", color: "#2d6a4f", rating: 0, review: "" },
+      { name: "El Salto", cuisine: "Mexican", address: "13019 Wicker Ave, Cedar Lake, IN", group: "Mexican", color: "#40916c", rating: 0, review: "" },
+      { name: "Schoop's", cuisine: "Burgers", address: "151 Deanna Dr, Lowell, IN", group: "Fast food", color: "#e85d04", rating: 0, review: "" },
+      { name: "George's", cuisine: "Family diner", address: "1910 E Commercial Ave, Lowell, IN", group: "Diner", color: "#7f5539", rating: 0, review: "" },
+      { name: "Don Delfi's", cuisine: "Pancakes and lunch", address: "151 Deanna Dr, Lowell, IN", group: "Diner", color: "#b08968", rating: 0, review: "" },
+      { name: "Dee's Corner", cuisine: "Burgers and comfort food", address: "1336 E Commercial Ave, Lowell, IN", group: "Diner", color: "#9c6644", rating: 0, review: "" },
+      { name: "Corky's", cuisine: "Dogs, Italian beef, burgers", address: "12421 Wicker Ave, Cedar Lake, IN", group: "Diner", color: "#8a5a32", rating: 0, review: "" },
+      { name: "The Dam Bar & Grill", cuisine: "Pub food", address: "4665 W Main St, Lowell, IN", group: "Pub", color: "#3d405b", rating: 0, review: "" },
+      { name: "Lake Dale Ale", cuisine: "Pub food", address: "5512 W Main St, Lowell, IN", group: "Pub", color: "#5c6b73", rating: 0, review: "" },
+      { name: "Athens Gyros", cuisine: "Greek", address: "116 Mill St, Lowell, IN", group: "Greek", color: "#1d4e89", rating: 0, review: "" },
+      { name: "Frank's Backyard BBQ", cuisine: "Barbecue", address: "13106 Wicker Ave, Cedar Lake, IN", group: "BBQ", color: "#6f1d1b", rating: 0, review: "" }
+    ];
+    const STORE = "lunch-plinko-reviews";
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE) || "[]");
+      saved.forEach((row) => {
+        const pl = ALL.find((x) => x.name === row.name);
+        if (!pl) return;
+        if (typeof row.rating === "number") pl.rating = Math.max(0, Math.min(5, row.rating));
+        if (typeof row.review === "string") pl.review = row.review;
+      });
+    } catch (e) {}
+    function saveReviews() {
+      localStorage.setItem(STORE, JSON.stringify(ALL.map((pl) => ({
+        name: pl.name, rating: pl.rating || 0, review: pl.review || ""
+      }))));
+    }
+
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const dropBtn = document.getElementById("drop");
+    const pop = document.getElementById("pop");
+    const popAgain = document.getElementById("popAgain");
+    const listEl = document.getElementById("list");
+
+    let enabled = ALL.map(() => true);
+    let lastWinner = -1;
+    let pegs = [];
+    let walls = {};
+    let slotW = 0;
+    let chip = null;
+    let running = false;
+    let dpr = 1;
+    let layout = {};
+    let hoverX = null;
+
+    function active() {
+      return ALL.map((p, i) => ({ p, i })).filter(x => enabled[x.i]);
+    }
+    function boardSlots() {
+      const rows = active();
+      if (!rows.some((x) => (x.p.rating || 0) > 0)) return rows;
+      const ranked = rows.slice().sort((a, b) => {
+        const d = (b.p.rating || 0) - (a.p.rating || 0);
+        return d || a.i - b.i;
+      });
+      const n = ranked.length;
+      const out = new Array(n);
+      const order = [];
+      const mid = Math.floor((n - 1) / 2);
+      order.push(mid);
+      let d = 1;
+      while (order.length < n) {
+        if (mid + d < n) order.push(mid + d);
+        if (order.length < n && mid - d >= 0) order.push(mid - d);
+        d += 1;
+      }
+      ranked.forEach((item, i) => { out[order[i]] = item; });
+      return out;
+    }
+    function spots() { return boardSlots().map(x => x.p); }
+
+    function mapsUrl(place) {
+      return "https://www.google.com/maps/search/?api=1&query=" +
+        encodeURIComponent(place.name + " " + place.address);
+    }
+
+    function paintStars(el, rating) {
+      el.querySelectorAll("button").forEach((btn) => {
+        const n = Number(btn.dataset.n);
+        btn.classList.toggle("on", n <= rating);
+      });
+    }
+    function renderList() {
+      listEl.innerHTML = "";
+      GROUPS.forEach((group) => {
+        const rows = ALL.map((place, i) => ({ place, i })).filter((x) => x.place.group === group);
+        if (!rows.length) return;
+        const h = document.createElement("div");
+        h.className = "group-label";
+        h.textContent = group;
+        listEl.appendChild(h);
+        rows.forEach(({ place, i }) => {
+          const wrap = document.createElement("div");
+          wrap.className = "item";
+          const top = document.createElement("label");
+          top.className = "item-top";
+          top.innerHTML = "<span class='swatch' style='background:" + place.color + "'></span>" +
+            "<input type='checkbox'" + (enabled[i] ? " checked" : "") + " />" +
+            "<span>" + place.name + "<span class='cuisine'>" + place.cuisine + "</span></span>";
+          top.querySelector("input").addEventListener("change", (e) => {
+            enabled[i] = e.target.checked;
+            if (active().length === 0) {
+              enabled[i] = true;
+              e.target.checked = true;
+            }
+            rebuild();
+          });
+          const stars = document.createElement("div");
+          stars.className = "stars";
+          for (let n = 1; n <= 5; n++) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.dataset.n = String(n);
+            btn.textContent = "★";
+            btn.addEventListener("click", () => {
+              place.rating = (place.rating === n) ? 0 : n;
+              paintStars(stars, place.rating);
+              saveReviews();
+              rebuild();
+            });
+            stars.appendChild(btn);
+          }
+          paintStars(stars, place.rating || 0);
+          const notes = document.createElement("input");
+          notes.className = "notes";
+          notes.placeholder = "Team review";
+          notes.value = place.review || "";
+          notes.addEventListener("input", () => {
+            place.review = notes.value;
+            saveReviews();
+          });
+          wrap.appendChild(top);
+          wrap.appendChild(stars);
+          wrap.appendChild(notes);
+          listEl.appendChild(wrap);
+        });
+      });
+    }
+
+    function resize() {
+      const box = canvas.parentElement;
+      const w = box.clientWidth;
+      const h = box.clientHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildBoard(w, h);
+      draw();
+    }
+
+    function rebuild() {
+      const box = canvas.parentElement;
+      buildBoard(box.clientWidth, box.clientHeight);
+      draw();
+    }
+
+    function buildBoard(w, h) {
+      const n = Math.max(1, spots().length);
+      const padTop = 16;
+      const slotH = Math.max(130, Math.min(180, h * 0.18));
+      const pocketH = Math.max(32, Math.min(48, h * 0.05));
+      const boardW = Math.min(w - 24, h * 0.58);
+      const left = (w - boardW) / 2;
+      const right = left + boardW;
+      slotW = boardW / n;
+      const slotTop = h - slotH - 8;
+      const dividerH = Math.max(22, Math.min(35, h * 0.035));
+      const pegTop = padTop + 36;
+      const pegBot = slotTop - dividerH - 14;
+      const rows = 28;
+      // Peg + chip size stay locked to the full restaurant list.
+      // Removing spots widens pockets but must not fatten the chip into the pegs.
+      const nRef = Math.max(1, ALL.length);
+      const slotWRef = boardW / nRef;
+      const pegR = Math.max(4, Math.min(7, slotWRef * 0.12));
+      pegs = [];
+      for (let r = 0; r < rows; r++) {
+        const y = pegTop + (r / (rows - 1)) * (pegBot - pegTop);
+        if (r % 2 === 0) {
+          for (let i = 0; i < n; i++) {
+            pegs.push({ x: left + (i + 0.5) * slotW, y, r: pegR });
+          }
+        } else {
+          pegs.push({ x: left, y, r: pegR });
+          for (let i = 1; i < n; i++) {
+            pegs.push({ x: left + i * slotW, y, r: pegR });
+          }
+          pegs.push({ x: right, y, r: pegR });
+        }
+      }
+      const gapRef = slotWRef * 0.5 - pegR;
+      const chipR = Math.max(3.5, Math.min(gapRef * 0.55, (slotWRef - 12) * 0.42));
+      const dividers = [];
+      for (let i = 0; i <= n; i++) {
+        dividers.push(left + i * slotW);
+      }
+      const floor = slotTop + pocketH - chipR - 4;
+      walls = { left, right, top: 8, slotTop, slotH, pocketH, pegR, chipR, n, dividerH, dividers, floor };
+      layout = { w, h, left, right, slotTop, slotH, pocketH, padTop, n, dividerH };
+    }
+
+    function spawnChip(atX) {
+      if (spots().length === 0) return;
+      const { left, right } = walls;
+      let cx;
+      if (typeof atX === "number" && !Number.isNaN(atX)) {
+        cx = Math.min(right - 8, Math.max(left + 8, atX));
+      } else {
+        cx = (left + right) / 2 + (Math.random() - 0.5) * slotW * 0.7;
+      }
+      chip = {
+        x: cx,
+        y: walls.top + 18,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: 0,
+        r: walls.chipR
+      };
+      running = true;
+      dropBtn.disabled = true;
+    }
+
+    function dropWithoutLast() {
+      if (lastWinner < 0) return;
+      if (active().length <= 1) return;
+      enabled[lastWinner] = false;
+      lastWinner = -1;
+      renderList();
+      rebuild();
+      pop.classList.remove("show");
+      spawnChip();
+    }
+
+    function step() {
+      if (!chip || !running) return;
+      const g = 0.16;
+      const damp = 0.62;
+      const friction = 0.996;
+      chip.vy += g;
+      if (chip.vy > 4.2) chip.vy = 4.2;
+      chip.vx *= friction;
+      chip.x += chip.vx;
+      chip.y += chip.vy;
+
+      if (chip.x - chip.r < walls.left) {
+        chip.x = walls.left + chip.r;
+        chip.vx = Math.abs(chip.vx) * damp;
+      }
+      if (chip.x + chip.r > walls.right) {
+        chip.x = walls.right - chip.r;
+        chip.vx = -Math.abs(chip.vx) * damp;
+      }
+
+      for (const p of pegs) {
+        const dx = chip.x - p.x;
+        const dy = chip.y - p.y;
+        const min = chip.r + p.r;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < min * min && d2 > 0.01) {
+          const d = Math.sqrt(d2);
+          const nx = dx / d;
+          const ny = dy / d;
+          const overlap = min - d;
+          chip.x += nx * overlap;
+          chip.y += ny * overlap;
+          const vn = chip.vx * nx + chip.vy * ny;
+          if (vn < 0) {
+            chip.vx -= (1 + damp) * vn * nx;
+            chip.vy -= (1 + damp) * vn * ny;
+            chip.vx += (Math.random() - 0.5) * 0.22;
+          }
+        }
+      }
+
+      const lip = walls.slotTop - walls.dividerH;
+      if (chip.y + chip.r > lip) {
+        const half = 1.5;
+        for (const x of walls.dividers) {
+          const near = chip.x + chip.r > x - half && chip.x - chip.r < x + half;
+          if (!near) continue;
+          if (chip.x < x) {
+            chip.x = x - half - chip.r;
+            chip.vx = -Math.abs(chip.vx) * damp;
+          } else {
+            chip.x = x + half + chip.r;
+            chip.vx = Math.abs(chip.vx) * damp;
+          }
+        }
+      }
+
+      if (chip.y + chip.r >= walls.floor) {
+        chip.y = walls.floor - chip.r;
+        chip.vy = 0;
+        chip.vx *= 0.55;
+        if (Math.abs(chip.vx) < 0.18) finish();
+      }
+    }
+
+    function finish() {
+      running = false;
+      const n = spots().length;
+      const idx = Math.max(0, Math.min(n - 1, Math.floor((chip.x - walls.left) / slotW)));
+      const pick = boardSlots()[idx];
+      const place = pick.p;
+      lastWinner = pick.i;
+      document.getElementById("popName").textContent = place.name;
+      const bits = [place.cuisine, place.address];
+      if (place.rating) bits.unshift(place.rating + "/5");
+      if (place.review) bits.push(place.review);
+      document.getElementById("popMeta").textContent = bits.join(" · ");
+      document.getElementById("popMaps").href = mapsUrl(place);
+      popAgain.disabled = active().length <= 1;
+      pop.classList.add("show");
+      dropBtn.disabled = false;
+    }
+
+    function draw() {
+      const { w, h, left, right, slotTop, slotH, pocketH, n } = layout;
+      if (!w) return;
+      ctx.clearRect(0, 0, w, h);
+      const list = boardSlots();
+
+      const dividerH = layout.dividerH;
+      const lip = slotTop - dividerH;
+      const boxTop = 4;
+      const boxBottom = slotTop + slotH;
+      ctx.fillStyle = "#2a1f18";
+      ctx.fillRect(left - 10, boxTop, right - left + 20, boxBottom - boxTop);
+      ctx.strokeStyle = "#f4a261";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(left - 10, boxTop, right - left + 20, boxBottom - boxTop);
+      for (let i = 0; i < list.length; i++) {
+        const x = left + i * slotW;
+        ctx.fillStyle = list[i].p.color;
+        ctx.fillRect(x, slotTop, slotW, boxBottom - slotTop);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 1, slotTop, slotW - 2, boxBottom - slotTop);
+        ctx.clip();
+        const name = list[i].p.name;
+        const maxH = Math.max(36, slotH - pocketH - 20);
+        const maxW = Math.max(8, slotW - 10);
+        let fontPx = Math.min(14, maxW * 0.58);
+        ctx.font = "bold " + fontPx + "px Iowan Old Style, Palatino, Georgia, serif";
+        const tw = ctx.measureText(name).width;
+        if (tw > maxH) fontPx = Math.max(8, fontPx * (maxH / tw));
+        ctx.font = "bold " + fontPx + "px Iowan Old Style, Palatino, Georgia, serif";
+        ctx.translate(x + slotW / 2, slotTop + pocketH + (slotH - pocketH) / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = "#fff8f0";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0,0,0,.55)";
+        ctx.shadowBlur = 3;
+        ctx.fillText(name, 0, 0);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = "#fff4e6";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "butt";
+      for (let i = 0; i <= list.length; i++) {
+        const x = left + i * slotW;
+        ctx.beginPath();
+        ctx.moveTo(x, lip);
+        ctx.lineTo(x, boxBottom);
+        ctx.stroke();
+      }
+
+      for (const p of pegs) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#f4a261";
+        ctx.fill();
+        ctx.strokeStyle = "#fff4e6";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      if (!running && hoverX != null && !pop.classList.contains("show")) {
+        const mx = Math.min(right - 8, Math.max(left + 8, hoverX));
+        const my = 26;
+        const rr = walls.chipR || 6;
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.strokeStyle = "#fff4e6";
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(mx, 10);
+        ctx.lineTo(mx, slotTop - 8);
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.arc(mx, my, rr, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff4e6";
+        ctx.fill();
+        ctx.strokeStyle = "#e85d04";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      if (chip) {
+        ctx.beginPath();
+        ctx.arc(chip.x, chip.y, chip.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff4e6";
+        ctx.fill();
+        ctx.strokeStyle = "#e85d04";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    function loop() {
+      if (running) step();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    function canvasX(ev) {
+      const rect = canvas.getBoundingClientRect();
+      return (ev.clientX - rect.left) * (canvas.width / dpr / rect.width);
+    }
+
+    function startDrop(atX) {
+      pop.classList.remove("show");
+      spawnChip(atX);
+    }
+
+    dropBtn.addEventListener("click", () => startDrop());
+    document.getElementById("popDrop").addEventListener("click", () => startDrop());
+    pop.addEventListener("click", (e) => {
+      if (e.target === pop) pop.classList.remove("show");
+    });
+    canvas.addEventListener("mousemove", (e) => {
+      hoverX = canvasX(e);
+    });
+    canvas.addEventListener("mouseleave", () => {
+      hoverX = null;
+    });
+    canvas.addEventListener("click", (e) => {
+      if (dropBtn.disabled) return;
+      if (pop.classList.contains("show")) return;
+      startDrop(canvasX(e));
+    });
+    popAgain.addEventListener("click", dropWithoutLast);
+    document.getElementById("reset").addEventListener("click", () => {
+      enabled = ALL.map(() => true);
+      lastWinner = -1;
+      renderList();
+      rebuild();
+    });
+    window.addEventListener("keydown", (e) => {
+      if ((e.code === "Space" || e.code === "Enter") && !dropBtn.disabled) {
+        e.preventDefault();
+        startDrop();
+      }
+    });
+    window.addEventListener("resize", resize);
+    renderList();
+    resize();
+    loop();
+
+  </script>
+</body>
+</html>

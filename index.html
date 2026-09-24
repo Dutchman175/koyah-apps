@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d4136">
+  <title>Koyah Apps</title>
+  <style>
+    :root {
+      --forest: #1d4136;
+      --forest-deep: #132e26;
+      --pine: #245447;
+      --teal: #108474;
+      --teal-press: #0c6a5d;
+      --mint: #95c9b4;
+      --mint-soft: #c5f7f0;
+      --leaf: #8dc63f;
+      --cream: #f4faf7;
+      --card: #ffffff;
+      --ink: #1c1c1c;
+      --muted: #4d635c;
+      --line: #d5e6df;
+      --shadow: 0 12px 32px rgba(29, 65, 54, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 520px at 0% -10%, rgba(16, 132, 116, 0.10), transparent 55%),
+        radial-gradient(700px 440px at 100% 0%, rgba(255, 255, 255, 0.04), transparent 50%),
+        linear-gradient(180deg, #4a504c 0%, #424844 45%, #3a403c 100%);
+      padding: 28px 16px 48px;
+    }
+    .wrap {
+      width: min(760px, 100%);
+      margin: 0 auto;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, var(--forest) 0%, var(--pine) 55%, #1a5246 100%);
+      color: #f7fffb;
+      border-radius: 22px;
+      padding: 28px 24px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -50px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(197, 247, 240, 0.28), transparent 70%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-block;
+      margin: 0 0 10px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(197, 247, 240, 0.16);
+      border: 1px solid rgba(197, 247, 240, 0.28);
+      color: var(--mint-soft);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.9rem, 5vw, 2.45rem);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      font-weight: 780;
+    }
+    .subtitle {
+      margin: 0;
+      max-width: 34ch;
+      color: rgba(247, 255, 251, 0.82);
+      font-size: 1.02rem;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+    @media (min-width: 640px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 8px 22px rgba(29, 65, 54, 0.08);
+      padding: 18px 18px 16px;
+      display: grid;
+      gap: 10px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      text-decoration: none;
+      color: inherit;
+      min-height: 168px;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #b7d8cb;
+      box-shadow: 0 14px 28px rgba(29, 65, 54, 0.14);
+    }
+    .card:active { transform: translateY(0); }
+    .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+      background: linear-gradient(160deg, #e8f8f2, #d7f0e6);
+      border: 1px solid #c9e6da;
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 1.18rem;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      color: var(--forest-deep);
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      flex: 1;
+    }
+    .open {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: auto;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background: var(--teal);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      width: fit-content;
+      box-shadow: 0 6px 14px rgba(16, 132, 116, 0.28);
+    }
+    .card:hover .open { background: var(--teal-press); }
+    footer {
+      margin-top: 22px;
+      color: rgba(197, 247, 240, 0.72);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    footer a {
+      color: var(--mint-soft);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <p class="eyebrow">Shop floor toolkit</p>
+      <h1>Koyah Apps</h1>
+      <p class="subtitle">Quick links to the trainers and games we actually use at the shop.</p>
+    </header>
+
+    <main class="grid">
+      <a class="card" href="capsule-trainer/">
+        <div class="icon" aria-hidden="true">💊</div>
+        <h2>Capsule Fill Trainer</h2>
+        <p>Practice auger and turntable speeds on a JTJ-V style fill station.</p>
+        <span class="open">Open <span aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="card" href="https://dutchman175.github.io/path-guard/">
+        <div class="icon" aria-hidden="true">🛡️</div>
+        <h2>Path Guard</h2>
+        <p>Tower defense on a winding path. Place towers, clear maps, unlock upgrades.</p>
+        <span class="open">Open <span aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="card" href="lunch-plinko.html">
+        <div class="icon" aria-hidden="true">🎯</div>
+        <h2>Lunch Plinko</h2>
+        <p>Drop a chip to pick today’s Lowell lunch spot.</p>
+        <span class="open">Open <span aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="card" href="lunch-wheel.html">
+        <div class="icon" aria-hidden="true">🎡</div>
+        <h2>Lunch Wheel</h2>
+        <p>Spin the Lowell lunch wheel.</p>
+        <span class="open">Open <span aria-hidden="true">→</span></span>
+      </a>
+    </main>
+
+    <footer>
+      Hosted on GitHub Pages so this link stays up.
+      Path Guard also lives at
+      <a href="https://dutchman175.github.io/path-guard/">dutchman175.github.io/path-guard</a>.
+    </footer>
+  </div>
+  <script>
+    // Clear leftover service workers from when Capsule Fill Trainer was served at site root.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        var killed = false;
+        return Promise.all(regs.map(function (r) {
+          var scopePath = (r.scope || "").replace(location.origin, "");
+          if (scopePath === "/" || scopePath === "") {
+            killed = true;
+            return r.unregister();
+          }
+        })).then(function () {
+          if (killed) {
+            return caches.keys().then(function (keys) {
+              return Promise.all(keys.filter(function (k) {
+                return k.indexOf("capsule-fill") === 0;
+              }).map(function (k) { return caches.delete(k); }));
+            }).then(function () {
+              location.reload();
+            });
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>
