@@ -67,7 +67,7 @@
     }
     .board-wrap {
       flex: 0 1 auto;
-      width: min(58vh, calc(100% - 600px));
+      width: min(58vh, calc(100% - 440px));
       min-width: 260px;
       min-height: 0;
       height: 100%;
@@ -81,8 +81,8 @@
       overflow: hidden;
       min-height: 0;
       margin: 8px 0;
-      flex: 0 0 560px;
-      width: 560px;
+      flex: 0 0 400px;
+      width: 400px;
       display: flex;
       flex-direction: column;
       box-shadow: 0 12px 32px rgba(0,0,0,.4);
@@ -107,16 +107,13 @@
     }
     .panel h2 { margin: 0 0 4px; font-size: 18px; }
     .panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
-    #list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      column-gap: 14px;
-    }
+    #list { display: block; }
     .item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 4px 10px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 8px;
+      align-items: center;
+      padding: 8px 2px;
       border-bottom: 1px solid #3a2b22;
       font-size: 15px;
     }
@@ -142,6 +139,7 @@
     }
     .stars button.on { color: var(--gold); }
     .notes {
+      grid-column: 1 / -1;
       width: 100%;
       background: #1c1410;
       border: 1px solid #4a382c;
@@ -229,7 +227,6 @@
       .board-wrap { width: 100%; min-width: 0; height: 68dvh; min-height: 420px; flex: 0 0 auto; }
       .panel { flex: 0 0 auto; width: 100%; }
       .panel-inner { overflow: visible; }
-      #list { grid-template-columns: 1fr; }
       button { font-size: 16px; padding: 10px 16px; }
     }
   </style>
