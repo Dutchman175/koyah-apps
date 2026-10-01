@@ -443,11 +443,7 @@
       // Removing spots widens pockets but must not fatten the chip into the pegs.
       const nRef = Math.max(1, ALL.length);
       const slotWRef = boardW / nRef;
-      const rowGap = (pegBot - pegTop) / (rows - 1);
-      const phone = window.matchMedia("(max-width: 640px)").matches;
-      let pegR = phone
-        ? Math.max(2.5, Math.min(7, slotWRef * 0.1, rowGap * 0.28))
-        : Math.max(4, Math.min(7, slotWRef * 0.12));
+      const pegR = Math.max(4, Math.min(7, slotWRef * 0.12));
       pegs = [];
       for (let r = 0; r < rows; r++) {
         const y = pegTop + (r / (rows - 1)) * (pegBot - pegTop);
@@ -464,9 +460,7 @@
         }
       }
       const gapRef = slotWRef * 0.5 - pegR;
-      const chipR = phone
-        ? Math.max(2, Math.min(slotWRef - pegR * 2, rowGap - pegR * 2) * 0.28)
-        : Math.max(3.5, Math.min(gapRef * 0.55, (slotWRef - 12) * 0.42));
+      const chipR = Math.max(3.5, Math.min(gapRef * 0.55, (slotWRef - 12) * 0.42));
       const dividers = [];
       for (let i = 0; i <= n; i++) {
         dividers.push(left + i * slotW);
