@@ -67,12 +67,12 @@
     }
     .board-wrap {
       flex: 0 1 auto;
-      width: min(58vh, calc(100% - 320px));
+      width: min(58vh, calc(100% - 600px));
       min-width: 260px;
       min-height: 0;
       height: 100%;
     }
-    #board { width: 100%; height: 100%; display: block; cursor: default; }
+    #board { width: 100%; height: 100%; display: block; cursor: default; touch-action: manipulation; }
     .panel {
       background: var(--panel);
       border: 1px solid #5a4336;
@@ -81,8 +81,8 @@
       overflow: hidden;
       min-height: 0;
       margin: 8px 0;
-      flex: 0 0 280px;
-      width: 280px;
+      flex: 0 0 560px;
+      width: 560px;
       display: flex;
       flex-direction: column;
       box-shadow: 0 12px 32px rgba(0,0,0,.4);
@@ -107,6 +107,11 @@
     }
     .panel h2 { margin: 0 0 4px; font-size: 18px; }
     .panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+    #list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 14px;
+    }
     .item {
       display: flex;
       flex-direction: column;
@@ -148,6 +153,7 @@
     }
     .notes:focus { outline: 1px solid #6b5244; }
     .group-label {
+      grid-column: 1 / -1;
       margin: 14px 0 4px;
       font-size: 11px;
       letter-spacing: .12em;
@@ -215,9 +221,16 @@
       width: 100%;
     }
     @media (max-width: 860px) {
-      .stage { flex-direction: column; padding: 12px 16px 16px; }
-      .board-wrap { width: 100%; min-width: 0; flex: 1 1 0; }
-      .panel { flex: 0 0 200px; width: auto; }
+      html, body { height: auto; min-height: 100%; overflow: auto; }
+      body { min-height: 100dvh; }
+      header { flex-wrap: wrap; padding: 10px 12px 6px; }
+      header p { font-size: 14px; }
+      .stage { flex-direction: column; padding: 8px 10px 20px; gap: 12px; }
+      .board-wrap { width: 100%; min-width: 0; height: 68dvh; min-height: 420px; flex: 0 0 auto; }
+      .panel { flex: 0 0 auto; width: 100%; }
+      .panel-inner { overflow: visible; }
+      #list { grid-template-columns: 1fr; }
+      button { font-size: 16px; padding: 10px 16px; }
     }
   </style>
 </head>
@@ -260,11 +273,8 @@
     const GROUPS = ["Pizza", "Mexican", "Fast food", "Diner", "Pub", "Greek", "BBQ"];
     const ALL = [
       { name: "Aurelio's Pizza", cuisine: "Pizza", address: "166 Deanna Dr, Lowell, IN", group: "Pizza", color: "#c1121f", rating: 0, review: "" },
-      { name: "Mexico Chiquito", cuisine: "Mexican", address: "1950 E Commercial Ave, Lowell, IN", group: "Mexican", color: "#2d6a4f", rating: 0, review: "" },
       { name: "El Salto", cuisine: "Mexican", address: "13019 Wicker Ave, Cedar Lake, IN", group: "Mexican", color: "#40916c", rating: 0, review: "" },
-      { name: "Schoop's", cuisine: "Burgers", address: "151 Deanna Dr, Lowell, IN", group: "Fast food", color: "#e85d04", rating: 0, review: "" },
       { name: "George's", cuisine: "Family diner", address: "1910 E Commercial Ave, Lowell, IN", group: "Diner", color: "#7f5539", rating: 0, review: "" },
-      { name: "Don Delfi's", cuisine: "Pancakes and lunch", address: "151 Deanna Dr, Lowell, IN", group: "Diner", color: "#b08968", rating: 0, review: "" },
       { name: "Dee's Corner", cuisine: "Burgers and comfort food", address: "1336 E Commercial Ave, Lowell, IN", group: "Diner", color: "#9c6644", rating: 0, review: "" },
       { name: "Corky's", cuisine: "Dogs, Italian beef, burgers", address: "12421 Wicker Ave, Cedar Lake, IN", group: "Diner", color: "#8a5a32", rating: 0, review: "" },
       { name: "The Dam Bar & Grill", cuisine: "Pub food", address: "4665 W Main St, Lowell, IN", group: "Pub", color: "#3d405b", rating: 0, review: "" },
@@ -706,10 +716,16 @@
     canvas.addEventListener("mouseleave", () => {
       hoverX = null;
     });
-    canvas.addEventListener("click", (e) => {
+    function dropAt(e) {
       if (dropBtn.disabled) return;
       if (pop.classList.contains("show")) return;
       startDrop(canvasX(e));
+    }
+    canvas.addEventListener("click", dropAt);
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      dropAt(e);
     });
     popAgain.addEventListener("click", dropWithoutLast);
     document.getElementById("reset").addEventListener("click", () => {
