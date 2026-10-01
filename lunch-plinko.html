@@ -444,7 +444,7 @@
       const nRef = Math.max(1, ALL.length);
       const slotWRef = boardW / nRef;
       const rowGap = (pegBot - pegTop) / (rows - 1);
-      const phone = window.matchMedia("(max-width: 860px)").matches;
+      const phone = window.matchMedia("(max-width: 640px)").matches;
       let pegR = phone
         ? Math.max(2.5, Math.min(7, slotWRef * 0.1, rowGap * 0.28))
         : Math.max(4, Math.min(7, slotWRef * 0.12));
