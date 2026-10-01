@@ -355,14 +355,13 @@
     }
     function renderList() {
       listEl.innerHTML = "";
+      const rows = [];
       GROUPS.forEach((group) => {
-        const rows = ALL.map((place, i) => ({ place, i })).filter((x) => x.place.group === group);
-        if (!rows.length) return;
-        const h = document.createElement("div");
-        h.className = "group-label";
-        h.textContent = group;
-        listEl.appendChild(h);
-        rows.forEach(({ place, i }) => {
+        ALL.forEach((place, i) => {
+          if (place.group === group) rows.push({ place, i });
+        });
+      });
+      rows.forEach(({ place, i }) => {
           const wrap = document.createElement("div");
           wrap.className = "item";
           const top = document.createElement("label");
@@ -406,7 +405,6 @@
           wrap.appendChild(stars);
           wrap.appendChild(notes);
           listEl.appendChild(wrap);
-        });
       });
     }
 
