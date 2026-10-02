@@ -84,7 +84,7 @@
     }
     .subtitle {
       margin: 0;
-      max-width: 34ch;
+      max-width: 36ch;
       color: rgba(247, 255, 251, 0.82);
       font-size: 1.02rem;
       line-height: 1.45;
@@ -114,6 +114,11 @@
     @media (min-width: 640px) {
       .types { grid-template-columns: 1fr 1fr; }
     }
+    .yn {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
     button {
       font-family: inherit;
       -webkit-appearance: none;
@@ -136,6 +141,14 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       cursor: pointer;
+    }
+    .yn .choice {
+      min-height: 48px;
+      place-items: center;
+      text-align: center;
+      font-weight: 750;
+      font-size: 1.05rem;
+      color: var(--forest-deep);
     }
     .choice[aria-pressed="true"] {
       background: #fff;
@@ -179,15 +192,11 @@
       cursor: default;
       box-shadow: none;
     }
-    .empty, .count, .note {
+    .empty, .note {
       margin: 0;
       color: var(--muted);
       font-size: 1rem;
       line-height: 1.45;
-    }
-    .note {
-      margin-top: 12px;
-      color: var(--forest-deep);
     }
     .drawn, .left-list {
       list-style: none;
@@ -220,7 +229,6 @@
       font-size: 0.95rem;
       line-height: 1.35;
     }
-    #resultCard { scroll-margin-top: 12px; }
     .group-name {
       margin: 16px 0 0;
       font-size: 1rem;
@@ -235,6 +243,12 @@
       line-height: 1.35;
     }
     .left-list li:last-child { border-bottom: 0; }
+    .none-left {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    #resultCard, #grindCard, #draw { scroll-margin-top: 12px; }
     footer {
       margin-top: 22px;
       color: rgba(197, 247, 240, 0.72);
@@ -252,13 +266,21 @@
     <header class="hero">
       <p class="eyebrow">Shop floor toolkit</p>
       <h1>A3 Testing</h1>
-      <p class="subtitle">Pick a production type. Draw the parts to test this time.</p>
+      <p class="subtitle">Pick a production type. Draw the locations to test.</p>
     </header>
 
     <main class="stack">
       <section class="card">
         <h2>Production type</h2>
         <div class="types" id="types" role="group" aria-label="Production type"></div>
+      </section>
+
+      <section class="card" id="grindCard" hidden>
+        <h2>Are you grinding?</h2>
+        <div class="yn" role="group" aria-label="Are you grinding?">
+          <button class="choice" id="grindYes" type="button" aria-pressed="false">Yes</button>
+          <button class="choice" id="grindNo" type="button" aria-pressed="false">No</button>
+        </div>
       </section>
 
       <button class="primary" id="draw" type="button" disabled>Draw next</button>
@@ -270,11 +292,10 @@
 
       <section class="card" id="leftCard" hidden>
         <h2>Still to test</h2>
-        <p class="count" id="leftCount"></p>
         <div id="left"></div>
       </section>
 
-      <button class="ghost" id="reset" type="button" hidden>Start this type over</button>
+      <button class="ghost" id="reset" type="button" hidden>Start the lists over</button>
     </main>
 
     <footer>
@@ -284,103 +305,155 @@
 
   <script>
     (function () {
-      var STORAGE_KEY = "koyah-a3-testing";
+      var STORAGE_KEY = "koyah-a3-testing-v2";
+      var GROUP_ORDER = ["powder", "grinding", "blending", "counter", "polisher", "encapsulators", "pouching", "tools"];
+      var GROUPS = {
+        powder: {
+          name: "Powder Fill",
+          encap: false,
+          parts: [
+            "Agitator paddles",
+            "Powder hopper",
+            "D-blade",
+            "Driveshaft",
+            "Plastic tube",
+            "Auger",
+            "Metal tube"
+          ]
+        },
+        counter: {
+          name: "Capsule Counter 2",
+          encap: true,
+          parts: [
+            "Tray 1",
+            "Tray 2",
+            "Tray 3",
+            "Capsule hopper",
+            "Metal Flaps",
+            "Dispensing chute"
+          ]
+        },
+        polisher: {
+          name: "Capsule Polisher",
+          encap: true,
+          parts: ["Brush", "Casing", "Ending Chute"]
+        },
+        encapsulators: {
+          name: "Encapsulators",
+          encap: true,
+          parts: [
+            "Encapsulator auger",
+            "Empty capsule hopper",
+            "Rings",
+            "Capsule dispenser",
+            "Pressing prongs"
+          ]
+        },
+        pouching: {
+          name: "Pouching machine",
+          encap: true,
+          parts: ["Separating prongs things"]
+        },
+        grinding: {
+          name: "Grinding",
+          encap: false,
+          parts: [
+            "Grinder Body",
+            "Grinder hopper",
+            "Grinder dispensing chute",
+            "Grinding Ring",
+            "Grinder inside"
+          ]
+        },
+        blending: {
+          name: "Blending",
+          encap: false,
+          parts: ["Blade", "Center Shaft", "Lid", "Walls", "Dispensing Hole"]
+        },
+        tools: {
+          name: "Tools",
+          encap: false,
+          parts: ["Scoops", "Spatula", "Table top"]
+        }
+      };
       var TYPES = [
+        {
+          id: "encapsulation",
+          name: "Encapsulation",
+          askGrinding: true,
+          yes: 4,
+          no: 3,
+          required: ["encapsulators"],
+          allowed: ["counter", "polisher", "encapsulators", "pouching", "tools"]
+        },
+        {
+          id: "encapsulation-blend",
+          name: "Encapsulation Blend",
+          askGrinding: true,
+          yes: 5,
+          no: 4,
+          required: ["encapsulators", "blending"],
+          allowed: ["counter", "polisher", "encapsulators", "pouching", "blending", "tools"]
+        },
         {
           id: "powder",
           name: "Powder Fill",
-          rule: "Two parts each draw",
+          askGrinding: true,
+          yes: 3,
+          no: 2,
+          required: ["powder"],
+          allowed: ["powder", "tools"]
+        },
+        {
+          id: "powder-blend",
+          name: "Powder Fill Blend",
+          askGrinding: true,
+          yes: 4,
+          no: 3,
+          required: ["powder", "blending"],
+          allowed: ["powder", "blending", "tools"]
+        },
+        {
+          id: "empty",
+          name: "Empty Capsules",
+          askGrinding: false,
           count: 2,
-          onePerSection: false,
-          sections: [
-            {
-              name: "",
-              parts: [
-                "Agitator paddles",
-                "Powder hopper",
-                "D-blade",
-                "Driveshaft",
-                "Plastic tube",
-                "Auger",
-                "Metal tube",
-                "Spatula"
-              ]
-            }
-          ]
+          required: [],
+          allowed: ["tools"]
         },
         {
-          id: "encapsulations",
-          name: "Encapsulations",
-          rule: "Three parts, one per machine",
-          count: 3,
-          onePerSection: true,
-          sections: [
-            {
-              name: "Capsule Counter 2",
-              parts: [
-                "Tray 1",
-                "Tray 2",
-                "Tray 3",
-                "Capsule hopper",
-                "Metal Flaps",
-                "Dispensing chute"
-              ]
-            },
-            {
-              name: "Capsule Polisher",
-              parts: ["Brush", "Casing", "Ending Chute"]
-            },
-            {
-              name: "Encapsulators",
-              parts: [
-                "Encapsulator auger",
-                "Empty capsule hopper",
-                "Rings",
-                "Capsule dispenser",
-                "Pressing prongs"
-              ]
-            },
-            {
-              name: "Pouching machine",
-              parts: ["Separating prongs things"]
-            },
-            {
-              name: "Tools",
-              parts: ["Scoops", "Spatula"]
-            }
-          ]
+          id: "wip-blend",
+          name: "WIP Blend",
+          askGrinding: true,
+          yes: 3,
+          no: 2,
+          required: ["blending"],
+          allowed: ["blending", "tools"]
         },
         {
-          id: "grinding",
-          name: "Grinding",
-          rule: "One part each draw",
-          count: 1,
-          onePerSection: false,
-          sections: [
-            {
-              name: "",
-              parts: [
-                "Grinder Body",
-                "Grinder hopper",
-                "Grinder dispensing chute",
-                "Grinding Ring",
-                "Grinder inside"
-              ]
-            }
-          ]
+          id: "wip-encap",
+          name: "WIP Encapsulation",
+          askGrinding: true,
+          yes: 4,
+          no: 3,
+          required: ["encapsulators"],
+          allowed: ["polisher", "encapsulators", "tools"]
         },
         {
-          id: "blending",
-          name: "Blending",
-          rule: "One part each draw",
-          count: 1,
-          onePerSection: false,
-          sections: [
-            {
-              name: "",
-              parts: ["Blade", "Center shaft", "Lid", "Walls", "Dispensing hole"]
-            }
-          ]
+          id: "wip-grind",
+          name: "WIP Grind",
+          askGrinding: false,
+          count: 2,
+          required: ["grinding"],
+          allowed: ["grinding", "tools"]
+        },
+        {
+          id: "wip-pouch",
+          name: "WIP Capsules Pouching",
+          askGrinding: false,
+          count: 2,
+          required: ["counter", "pouching"],
+          allowed: ["counter", "pouching", "tools"]
         }
       ];
 
@@ -391,75 +464,139 @@
         return null;
       }
 
-      function allNames(type) {
-        var names = [];
-        type.sections.forEach(function (section) {
-          section.parts.forEach(function (name) { names.push(name); });
+      function fullRemaining() {
+        var remaining = {};
+        GROUP_ORDER.forEach(function (id) {
+          remaining[id] = GROUPS[id].parts.slice();
         });
-        return names;
+        return remaining;
       }
 
-      function sectionFor(type, name) {
-        for (var i = 0; i < type.sections.length; i++) {
-          if (type.sections[i].parts.indexOf(name) !== -1) return type.sections[i].name;
-        }
-        return "";
+      function maxSlots(groupId) {
+        if (GROUPS[groupId].encap) return 1;
+        return GROUPS[groupId].parts.length;
       }
 
-      function shuffle(list) {
-        var copy = list.slice();
-        for (var i = copy.length - 1; i > 0; i--) {
-          var j = Math.floor(Math.random() * (i + 1));
-          var tmp = copy[i];
-          copy[i] = copy[j];
-          copy[j] = tmp;
-        }
-        return copy;
+      function testCount(type, grinding) {
+        if (!type) return null;
+        if (!type.askGrinding) return type.count;
+        if (grinding === true) return type.yes;
+        if (grinding === false) return type.no;
+        return null;
       }
 
-      function freshPool(type) {
-        return { remaining: allNames(type), last: null, partial: false };
-      }
-
-      function sanitizePool(type, pool) {
-        var known = {};
-        allNames(type).forEach(function (name) { known[name] = true; });
-        var remaining = [];
-        var seen = {};
-        if (pool && Array.isArray(pool.remaining)) {
-          pool.remaining.forEach(function (name) {
-            if (known[name] && !seen[name]) {
-              seen[name] = true;
-              remaining.push(name);
-            }
-          });
-        } else {
-          remaining = allNames(type);
-        }
-        var last = null;
-        if (pool && Array.isArray(pool.last)) {
-          last = [];
-          var seenLast = {};
-          pool.last.forEach(function (name) {
-            if (known[name] && !seenLast[name]) {
-              seenLast[name] = true;
-              last.push(name);
-            }
-          });
+      function planFor(type, grinding) {
+        var required = type.required.slice();
+        var allowed = type.allowed.slice();
+        if (type.askGrinding && grinding === true) {
+          required.push("grinding");
+          allowed.push("grinding");
         }
         return {
-          remaining: remaining,
-          last: last,
-          partial: !!(pool && pool.partial && last && last.length)
+          required: required,
+          allowed: allowed,
+          count: testCount(type, grinding)
         };
       }
 
-      function blankState() {
-        var pools = {};
-        TYPES.forEach(function (type) {
-          pools[type.id] = freshPool(type);
+      function ready() {
+        var type = typeById(state.selected);
+        return !!(type && testCount(type, state.grinding));
+      }
+
+      function chooseSlots(required, allowed, count) {
+        var slots = required.slice();
+        var guard = 0;
+        while (slots.length < count && guard < 40) {
+          guard++;
+          var options = [];
+          allowed.forEach(function (id) {
+            var used = 0;
+            slots.forEach(function (slot) {
+              if (slot === id) used++;
+            });
+            if (used < maxSlots(id)) options.push(id);
+          });
+          if (!options.length) break;
+          slots.push(options[Math.floor(Math.random() * options.length)]);
+        }
+        return slots;
+      }
+
+      function take(remaining, groupId, blocked) {
+        var catalog = GROUPS[groupId].parts;
+        var open = remaining[groupId].filter(function (name) { return !blocked[name]; });
+        if (!open.length) {
+          remaining[groupId] = catalog.filter(function (name) { return !blocked[name]; });
+          open = remaining[groupId].slice();
+        }
+        if (!open.length) return null;
+        var pick = open[Math.floor(Math.random() * open.length)];
+        remaining[groupId] = remaining[groupId].filter(function (name) { return name !== pick; });
+        return pick;
+      }
+
+      function drawFrom(remaining, type, grinding) {
+        var spec = planFor(type, grinding);
+        if (!spec.count) return null;
+        var slots = chooseSlots(spec.required, spec.allowed, spec.count);
+        if (slots.length !== spec.count) return null;
+        var blocked = {};
+        var drawn = [];
+        for (var i = 0; i < slots.length; i++) {
+          var groupId = slots[i];
+          if (!blocked[groupId]) blocked[groupId] = {};
+          var name = take(remaining, groupId, blocked[groupId]);
+          if (!name) return null;
+          blocked[groupId][name] = true;
+          drawn.push({ group: groupId, name: name });
+        }
+        drawn.sort(function (a, b) {
+          return GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group);
         });
-        return { selected: null, pools: pools };
+        return drawn;
+      }
+
+      function sanitizeRemaining(saved) {
+        var remaining = {};
+        GROUP_ORDER.forEach(function (id) {
+          var catalog = GROUPS[id].parts;
+          var known = {};
+          catalog.forEach(function (name) { known[name] = true; });
+          if (saved && Array.isArray(saved[id])) {
+            var seen = {};
+            remaining[id] = [];
+            saved[id].forEach(function (name) {
+              if (known[name] && !seen[name]) {
+                seen[name] = true;
+                remaining[id].push(name);
+              }
+            });
+          } else {
+            remaining[id] = catalog.slice();
+          }
+        });
+        return remaining;
+      }
+
+      function sanitizeLast(saved) {
+        if (!Array.isArray(saved)) return null;
+        var last = [];
+        saved.forEach(function (item) {
+          if (!item || !GROUPS[item.group]) return;
+          if (GROUPS[item.group].parts.indexOf(item.name) === -1) return;
+          last.push({ group: item.group, name: item.name });
+        });
+        return last.length ? last : null;
+      }
+
+      function blankState() {
+        return {
+          selected: null,
+          grinding: null,
+          remaining: fullRemaining(),
+          last: null
+        };
       }
 
       function loadState() {
@@ -470,81 +607,36 @@
           var data = JSON.parse(raw);
           if (!data || typeof data !== "object") return state;
           if (typeById(data.selected)) state.selected = data.selected;
-          TYPES.forEach(function (type) {
-            var saved = data.pools && data.pools[type.id];
-            if (saved) state.pools[type.id] = sanitizePool(type, saved);
-          });
+          if (data.grinding === true || data.grinding === false) state.grinding = data.grinding;
+          state.remaining = sanitizeRemaining(data.remaining);
+          state.last = sanitizeLast(data.last);
         } catch (err) {
           return blankState();
         }
         return state;
       }
 
-      function saveState(state) {
+      function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-
-      function openSections(type, remaining) {
-        var have = {};
-        remaining.forEach(function (name) { have[name] = true; });
-        var open = [];
-        type.sections.forEach(function (section) {
-          var choices = section.parts.filter(function (name) { return have[name]; });
-          if (choices.length) open.push(choices);
-        });
-        return open;
-      }
-
-      function pick(type, remaining) {
-        if (type.onePerSection) {
-          var open = openSections(type, remaining);
-          if (open.length >= type.count) {
-            return {
-              parts: shuffle(open).slice(0, type.count).map(function (choices) {
-                return shuffle(choices)[0];
-              }),
-              partial: false
-            };
-          }
-          return {
-            parts: shuffle(open).map(function (choices) {
-              return shuffle(choices)[0];
-            }),
-            partial: true
-          };
-        }
-        if (remaining.length >= type.count) {
-          return { parts: shuffle(remaining).slice(0, type.count), partial: false };
-        }
-        return { parts: remaining.slice(), partial: true };
-      }
-
-      function drawNext(state, typeId) {
-        var type = typeById(typeId);
-        var pool = state.pools[typeId];
-        if (!pool.remaining.length) pool.remaining = allNames(type);
-        var picked = pick(type, pool.remaining);
-        if (!picked.parts.length) return pool;
-        pool.last = picked.parts;
-        pool.partial = picked.partial;
-        if (picked.partial) {
-          pool.remaining = [];
-        } else {
-          var used = {};
-          picked.parts.forEach(function (name) { used[name] = true; });
-          pool.remaining = pool.remaining.filter(function (name) { return !used[name]; });
-        }
-        return pool;
       }
 
       function clear(node) {
         while (node.firstChild) node.removeChild(node.firstChild);
       }
 
-      function renderResult(type, pool) {
+      function activeGroups() {
+        var type = typeById(state.selected);
+        if (!type || !ready()) return [];
+        var spec = planFor(type, state.grinding);
+        return GROUP_ORDER.filter(function (id) {
+          return spec.allowed.indexOf(id) !== -1;
+        });
+      }
+
+      function renderResult() {
         var result = document.getElementById("result");
         clear(result);
-        if (!pool.last || !pool.last.length) {
+        if (!state.last || !state.last.length) {
           var empty = document.createElement("p");
           empty.className = "empty";
           empty.textContent = "Draw to see what to test.";
@@ -553,58 +645,42 @@
         }
         var list = document.createElement("ul");
         list.className = "drawn";
-        pool.last.forEach(function (name) {
-          var item = document.createElement("li");
+        state.last.forEach(function (item) {
+          var row = document.createElement("li");
+          row.setAttribute("data-group", item.group);
+          row.setAttribute("data-name", item.name);
           var part = document.createElement("span");
           part.className = "part-name";
-          part.textContent = name;
-          item.appendChild(part);
-          var section = sectionFor(type, name);
-          if (section) {
-            var sub = document.createElement("span");
-            sub.className = "part-section";
-            sub.textContent = section;
-            item.appendChild(sub);
-          }
-          list.appendChild(item);
+          part.textContent = item.name;
+          var section = document.createElement("span");
+          section.className = "part-section";
+          section.textContent = GROUPS[item.group].name;
+          row.appendChild(part);
+          row.appendChild(section);
+          list.appendChild(row);
         });
         result.appendChild(list);
-        var noteText = "";
-        if (pool.partial) {
-          noteText = "A full set cannot be drawn. The next draw starts over.";
-        } else if (!pool.remaining.length) {
-          noteText = "The next draw starts over.";
-        }
-        if (noteText) {
-          var note = document.createElement("p");
-          note.className = "note";
-          note.textContent = noteText;
-          result.appendChild(note);
-        }
       }
 
-      function renderLeft(type, pool) {
-        var count = pool.remaining.length;
-        var countEl = document.getElementById("leftCount");
-        if (count === 0) countEl.textContent = "None left.";
-        else if (count === 1) countEl.textContent = "1 left.";
-        else countEl.textContent = count + " left.";
-
-        var have = {};
-        pool.remaining.forEach(function (name) { have[name] = true; });
+      function renderLeft() {
         var left = document.getElementById("left");
         clear(left);
-        type.sections.forEach(function (section) {
-          var names = section.parts.filter(function (name) { return have[name]; });
-          if (!names.length) return;
-          if (type.onePerSection && section.name) {
-            var heading = document.createElement("h3");
-            heading.className = "group-name";
-            heading.textContent = section.name;
-            left.appendChild(heading);
+        activeGroups().forEach(function (id) {
+          var heading = document.createElement("h3");
+          heading.className = "group-name";
+          heading.textContent = GROUPS[id].name;
+          left.appendChild(heading);
+          var names = state.remaining[id];
+          if (!names.length) {
+            var none = document.createElement("p");
+            none.className = "none-left";
+            none.textContent = "None left.";
+            left.appendChild(none);
+            return;
           }
           var list = document.createElement("ul");
           list.className = "left-list";
+          list.setAttribute("data-left-group", id);
           names.forEach(function (name) {
             var item = document.createElement("li");
             item.textContent = name;
@@ -615,21 +691,27 @@
       }
 
       function render() {
-        var buttons = document.querySelectorAll(".choice");
+        var type = typeById(state.selected);
+        var buttons = document.querySelectorAll("#types .choice");
         for (var i = 0; i < buttons.length; i++) {
           var on = buttons[i].getAttribute("data-type") === state.selected;
           buttons[i].setAttribute("aria-pressed", on ? "true" : "false");
         }
-        var type = typeById(state.selected);
-        drawBtn.disabled = !type;
-        resultCard.hidden = !type;
-        leftCard.hidden = !type;
+        var ask = !!(type && type.askGrinding);
+        grindCard.hidden = !ask;
+        grindYes.setAttribute("aria-pressed", ask && state.grinding === true ? "true" : "false");
+        grindNo.setAttribute("aria-pressed", ask && state.grinding === false ? "true" : "false");
+        var count = testCount(type, state.grinding);
+        var isReady = ready();
+        drawBtn.disabled = !isReady;
+        drawBtn.textContent = count ? "Draw " + count + (count === 1 ? " test" : " tests") : "Draw next";
+        resultCard.hidden = !isReady;
+        leftCard.hidden = !isReady;
         resetBtn.hidden = !type;
-        if (!type) return;
-        resetBtn.textContent = "Start " + type.name + " over";
-        var pool = state.pools[type.id];
-        renderResult(type, pool);
-        renderLeft(type, pool);
+        if (isReady) {
+          renderResult();
+          renderLeft();
+        }
       }
 
       var state = loadState();
@@ -637,6 +719,9 @@
       var resetBtn = document.getElementById("reset");
       var resultCard = document.getElementById("resultCard");
       var leftCard = document.getElementById("leftCard");
+      var grindCard = document.getElementById("grindCard");
+      var grindYes = document.getElementById("grindYes");
+      var grindNo = document.getElementById("grindNo");
       var typesEl = document.getElementById("types");
 
       TYPES.forEach(function (type) {
@@ -650,7 +735,7 @@
         name.textContent = type.name;
         var rule = document.createElement("span");
         rule.className = "choice-rule";
-        rule.textContent = type.rule;
+        rule.textContent = type.askGrinding ? "Asks about grinding" : type.count + " tests";
         button.appendChild(name);
         button.appendChild(rule);
         typesEl.appendChild(button);
@@ -660,23 +745,49 @@
         var button = event.target.closest("button[data-type]");
         if (!button) return;
         state.selected = button.getAttribute("data-type");
-        saveState(state);
+        state.grinding = null;
+        state.last = null;
+        saveState();
         render();
+        if (typeById(state.selected).askGrinding) grindCard.scrollIntoView({ block: "start" });
+        else drawBtn.scrollIntoView({ block: "center" });
+      });
+
+      grindYes.addEventListener("click", function () {
+        if (!typeById(state.selected) || !typeById(state.selected).askGrinding) return;
+        state.grinding = true;
+        state.last = null;
+        saveState();
+        render();
+        drawBtn.scrollIntoView({ block: "center" });
+      });
+
+      grindNo.addEventListener("click", function () {
+        if (!typeById(state.selected) || !typeById(state.selected).askGrinding) return;
+        state.grinding = false;
+        state.last = null;
+        saveState();
+        render();
+        drawBtn.scrollIntoView({ block: "center" });
       });
 
       drawBtn.addEventListener("click", function () {
-        if (!state.selected) return;
-        drawNext(state, state.selected);
-        saveState(state);
+        var type = typeById(state.selected);
+        if (!type || !ready()) return;
+        var remaining = JSON.parse(JSON.stringify(state.remaining));
+        var drawn = drawFrom(remaining, type, state.grinding);
+        if (!drawn) return;
+        state.remaining = remaining;
+        state.last = drawn;
+        saveState();
         render();
         resultCard.scrollIntoView({ block: "start" });
       });
 
       resetBtn.addEventListener("click", function () {
-        if (!state.selected) return;
-        var type = typeById(state.selected);
-        state.pools[type.id] = freshPool(type);
-        saveState(state);
+        state.remaining = fullRemaining();
+        state.last = null;
+        saveState();
         render();
       });
 
