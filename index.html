@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#603813">
+  <meta name="theme-color" content="#1c241c">
   <title>Koyah</title>
   <style>
     :root {
@@ -22,7 +22,9 @@
       min-height: 100vh;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: var(--ink);
-      background: #f4f6ef;
+      background:
+        radial-gradient(880px 420px at 50% -8%, rgba(139, 197, 62, 0.18), transparent 58%),
+        linear-gradient(180deg, #2c382c 0%, #1c241c 52%, #141a14 100%);
       padding: 14px 12px 28px;
     }
     .wrap {
@@ -30,11 +32,14 @@
       margin: 0 auto;
     }
     .hero {
-      background: transparent;
+      background: #fff;
       color: var(--brown);
-      padding: 2px 0 4px;
-      margin-bottom: 8px;
+      border: 1px solid #efe8dc;
+      border-radius: 16px;
+      padding: 10px 16px 8px;
+      margin-bottom: 10px;
       text-align: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
     }
     .brand {
       display: block;
@@ -51,7 +56,7 @@
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 16px;
-      box-shadow: 0 8px 18px rgba(96, 56, 19, 0.06);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
       padding: 12px 12px 10px;
       display: grid;
       gap: 6px;
@@ -125,7 +130,7 @@
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 16px;
-      box-shadow: 0 8px 18px rgba(96, 56, 19, 0.06);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
       padding: 12px 14px;
       margin: 0 0 10px;
     }
