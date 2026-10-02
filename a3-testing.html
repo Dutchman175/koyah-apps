@@ -160,10 +160,11 @@
       font-size: 1.05rem;
       color: var(--forest-deep);
     }
-    .choice-rule {
+    .picked {
+      margin: 0 0 10px;
       color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.35;
+      font-size: 1rem;
+      line-height: 1.4;
     }
     .primary, .ghost {
       width: 100%;
@@ -266,16 +267,17 @@
     <header class="hero">
       <p class="eyebrow">Shop floor toolkit</p>
       <h1>A3 Testing</h1>
-      <p class="subtitle">Pick a production type. Draw the locations to test.</p>
+      <p class="subtitle">Pick a production type.</p>
     </header>
 
     <main class="stack">
-      <section class="card">
+      <section class="card" id="typeCard">
         <h2>Production type</h2>
         <div class="types" id="types" role="group" aria-label="Production type"></div>
       </section>
 
       <section class="card" id="grindCard" hidden>
+        <p class="picked" id="grindType"></p>
         <h2>Are you grinding?</h2>
         <div class="yn" role="group" aria-label="Are you grinding?">
           <button class="choice" id="grindYes" type="button" aria-pressed="false">Yes</button>
@@ -283,9 +285,8 @@
         </div>
       </section>
 
-      <button class="primary" id="draw" type="button" disabled>Draw next</button>
-
       <section class="card" id="resultCard" hidden>
+        <p class="picked" id="resultType"></p>
         <h2>Test these</h2>
         <div id="result" aria-live="polite"></div>
       </section>
@@ -295,6 +296,8 @@
         <div id="left"></div>
       </section>
 
+      <button class="primary" id="draw" type="button" hidden>Next set</button>
+      <button class="ghost" id="change" type="button" hidden>Change type</button>
       <button class="ghost" id="reset" type="button" hidden>Start the lists over</button>
     </main>
 
@@ -504,6 +507,25 @@
         return !!(type && testCount(type, state.grinding));
       }
 
+      function currentStep() {
+        var type = typeById(state.selected);
+        if (!type) return "type";
+        if (type.askGrinding && state.grinding !== true && state.grinding !== false) return "grind";
+        return "result";
+      }
+
+      function fillList() {
+        var type = typeById(state.selected);
+        if (!type || !testCount(type, state.grinding)) return false;
+        var remaining = JSON.parse(JSON.stringify(state.remaining));
+        var drawn = drawFrom(remaining, type, state.grinding);
+        if (!drawn) return false;
+        state.remaining = remaining;
+        state.last = drawn;
+        saveState();
+        return true;
+      }
+
       function chooseSlots(required, allowed, count) {
         var slots = required.slice();
         var guard = 0;
@@ -636,13 +658,7 @@
       function renderResult() {
         var result = document.getElementById("result");
         clear(result);
-        if (!state.last || !state.last.length) {
-          var empty = document.createElement("p");
-          empty.className = "empty";
-          empty.textContent = "Draw to see what to test.";
-          result.appendChild(empty);
-          return;
-        }
+        if (!state.last || !state.last.length) return;
         var list = document.createElement("ul");
         list.className = "drawn";
         state.last.forEach(function (item) {
@@ -690,25 +706,34 @@
         });
       }
 
+      function answerLine(type) {
+        var line = type.name;
+        if (type.askGrinding && state.grinding === true) line += ". Grinding.";
+        if (type.askGrinding && state.grinding === false) line += ". Not grinding.";
+        return line;
+      }
+
       function render() {
         var type = typeById(state.selected);
+        var step = currentStep();
         var buttons = document.querySelectorAll("#types .choice");
         for (var i = 0; i < buttons.length; i++) {
           var on = buttons[i].getAttribute("data-type") === state.selected;
           buttons[i].setAttribute("aria-pressed", on ? "true" : "false");
         }
-        var ask = !!(type && type.askGrinding);
-        grindCard.hidden = !ask;
-        grindYes.setAttribute("aria-pressed", ask && state.grinding === true ? "true" : "false");
-        grindNo.setAttribute("aria-pressed", ask && state.grinding === false ? "true" : "false");
-        var count = testCount(type, state.grinding);
-        var isReady = ready();
-        drawBtn.disabled = !isReady;
-        drawBtn.textContent = count ? "Draw " + count + (count === 1 ? " test" : " tests") : "Draw next";
-        resultCard.hidden = !isReady;
-        leftCard.hidden = !isReady;
-        resetBtn.hidden = !type;
-        if (isReady) {
+        typeCard.hidden = step !== "type";
+        grindCard.hidden = step !== "grind";
+        if (step === "grind" && type) grindType.textContent = type.name;
+        grindYes.setAttribute("aria-pressed", state.grinding === true ? "true" : "false");
+        grindNo.setAttribute("aria-pressed", state.grinding === false ? "true" : "false");
+        var showResult = step === "result" && state.last && state.last.length;
+        resultCard.hidden = !showResult;
+        leftCard.hidden = !showResult;
+        drawBtn.hidden = !showResult;
+        resetBtn.hidden = !showResult;
+        changeBtn.hidden = step === "type";
+        if (showResult && type) resultType.textContent = answerLine(type);
+        if (step === "result") {
           renderResult();
           renderLeft();
         }
@@ -717,9 +742,13 @@
       var state = loadState();
       var drawBtn = document.getElementById("draw");
       var resetBtn = document.getElementById("reset");
+      var changeBtn = document.getElementById("change");
       var resultCard = document.getElementById("resultCard");
       var leftCard = document.getElementById("leftCard");
+      var typeCard = document.getElementById("typeCard");
       var grindCard = document.getElementById("grindCard");
+      var grindType = document.getElementById("grindType");
+      var resultType = document.getElementById("resultType");
       var grindYes = document.getElementById("grindYes");
       var grindNo = document.getElementById("grindNo");
       var typesEl = document.getElementById("types");
@@ -733,13 +762,11 @@
         var name = document.createElement("span");
         name.className = "choice-name";
         name.textContent = type.name;
-        var rule = document.createElement("span");
-        rule.className = "choice-rule";
-        rule.textContent = type.askGrinding ? "Asks about grinding" : type.count + " tests";
         button.appendChild(name);
-        button.appendChild(rule);
         typesEl.appendChild(button);
       });
+
+      if (currentStep() === "result" && (!state.last || !state.last.length)) fillList();
 
       typesEl.addEventListener("click", function (event) {
         var button = event.target.closest("button[data-type]");
@@ -747,48 +774,52 @@
         state.selected = button.getAttribute("data-type");
         state.grinding = null;
         state.last = null;
-        saveState();
+        if (typeById(state.selected).askGrinding) saveState();
+        else fillList();
         render();
-        if (typeById(state.selected).askGrinding) grindCard.scrollIntoView({ block: "start" });
-        else drawBtn.scrollIntoView({ block: "center" });
+        if (currentStep() === "grind") grindCard.scrollIntoView({ block: "start" });
+        else if (currentStep() === "result") resultCard.scrollIntoView({ block: "start" });
       });
 
       grindYes.addEventListener("click", function () {
         if (!typeById(state.selected) || !typeById(state.selected).askGrinding) return;
         state.grinding = true;
         state.last = null;
-        saveState();
+        fillList();
         render();
-        drawBtn.scrollIntoView({ block: "center" });
+        if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
       grindNo.addEventListener("click", function () {
         if (!typeById(state.selected) || !typeById(state.selected).askGrinding) return;
         state.grinding = false;
         state.last = null;
-        saveState();
+        fillList();
         render();
-        drawBtn.scrollIntoView({ block: "center" });
+        if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
       drawBtn.addEventListener("click", function () {
-        var type = typeById(state.selected);
-        if (!type || !ready()) return;
-        var remaining = JSON.parse(JSON.stringify(state.remaining));
-        var drawn = drawFrom(remaining, type, state.grinding);
-        if (!drawn) return;
-        state.remaining = remaining;
-        state.last = drawn;
-        saveState();
+        if (!ready()) return;
+        fillList();
         render();
         resultCard.scrollIntoView({ block: "start" });
+      });
+
+      changeBtn.addEventListener("click", function () {
+        state.selected = null;
+        state.grinding = null;
+        state.last = null;
+        saveState();
+        render();
       });
 
       resetBtn.addEventListener("click", function () {
         state.remaining = fullRemaining();
         state.last = null;
-        saveState();
+        fillList();
         render();
+        if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
       render();
