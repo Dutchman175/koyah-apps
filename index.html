@@ -162,11 +162,32 @@
       line-height: 1.35;
     }
     .joke-a {
-      margin: 6px 0 0;
+      margin: 8px 0 0;
       color: var(--ink);
       font-size: 0.98rem;
       line-height: 1.4;
     }
+    .joke-reveal {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 8px;
+      min-height: 40px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--teal);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(16, 132, 116, 0.28);
+    }
+    .joke-reveal:hover { background: var(--teal-press); }
+    .joke-reveal:active { transform: translateY(1px); }
+    .joke-reveal[hidden],
+    .joke-a[hidden] { display: none; }
     footer {
       margin-top: 14px;
       color: rgba(197, 247, 240, 0.72);
@@ -187,7 +208,8 @@
 
     <section class="joke" id="joke" aria-label="Today's joke">
       <p class="joke-q" id="jokeQ"></p>
-      <p class="joke-a" id="jokeA"></p>
+      <button type="button" class="joke-reveal" id="jokeReveal">Show the answer</button>
+      <p class="joke-a" id="jokeA" hidden></p>
     </section>
 
     <main class="grid">
@@ -410,11 +432,22 @@
     const seed = d.getFullYear() * 366 + dayOfYear;
     return jokes[seed % jokes.length];
   }
+    var todayJoke = null;
     function showTodayJoke() {
-      var joke = jokeForDate(new Date());
-      document.getElementById("jokeQ").textContent = joke.q;
-      document.getElementById("jokeA").textContent = joke.a;
+      todayJoke = jokeForDate(new Date());
+      document.getElementById("jokeQ").textContent = todayJoke.q;
+      var answer = document.getElementById("jokeA");
+      answer.textContent = "";
+      answer.hidden = true;
+      document.getElementById("jokeReveal").hidden = false;
     }
+    document.getElementById("jokeReveal").addEventListener("click", function () {
+      if (!todayJoke) return;
+      var answer = document.getElementById("jokeA");
+      answer.textContent = todayJoke.a;
+      answer.hidden = false;
+      document.getElementById("jokeReveal").hidden = true;
+    });
     function scheduleJokeRefresh() {
       var now = new Date();
       var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
