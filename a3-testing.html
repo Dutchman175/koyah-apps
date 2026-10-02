@@ -199,7 +199,7 @@
       font-size: 1rem;
       line-height: 1.45;
     }
-    .drawn, .left-list {
+    .drawn {
       list-style: none;
       margin: 0;
       padding: 0;
@@ -229,25 +229,6 @@
       color: var(--muted);
       font-size: 0.95rem;
       line-height: 1.35;
-    }
-    .group-name {
-      margin: 16px 0 0;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--forest-deep);
-    }
-    .group-name:first-child { margin-top: 4px; }
-    .left-list li {
-      padding: 10px 0;
-      border-bottom: 1px solid var(--line);
-      font-size: 1rem;
-      line-height: 1.35;
-    }
-    .left-list li:last-child { border-bottom: 0; }
-    .none-left {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 1rem;
     }
     #resultCard, #grindCard, #draw { scroll-margin-top: 12px; }
     footer {
@@ -289,11 +270,6 @@
         <p class="picked" id="resultType"></p>
         <h2>Test these</h2>
         <div id="result" aria-live="polite"></div>
-      </section>
-
-      <section class="card" id="leftCard" hidden>
-        <h2>Still to test</h2>
-        <div id="left"></div>
       </section>
 
       <button class="primary" id="draw" type="button" hidden>Next set</button>
@@ -646,15 +622,6 @@
         while (node.firstChild) node.removeChild(node.firstChild);
       }
 
-      function activeGroups() {
-        var type = typeById(state.selected);
-        if (!type || !ready()) return [];
-        var spec = planFor(type, state.grinding);
-        return GROUP_ORDER.filter(function (id) {
-          return spec.allowed.indexOf(id) !== -1;
-        });
-      }
-
       function renderResult() {
         var result = document.getElementById("result");
         clear(result);
@@ -676,34 +643,6 @@
           list.appendChild(row);
         });
         result.appendChild(list);
-      }
-
-      function renderLeft() {
-        var left = document.getElementById("left");
-        clear(left);
-        activeGroups().forEach(function (id) {
-          var heading = document.createElement("h3");
-          heading.className = "group-name";
-          heading.textContent = GROUPS[id].name;
-          left.appendChild(heading);
-          var names = state.remaining[id];
-          if (!names.length) {
-            var none = document.createElement("p");
-            none.className = "none-left";
-            none.textContent = "None left.";
-            left.appendChild(none);
-            return;
-          }
-          var list = document.createElement("ul");
-          list.className = "left-list";
-          list.setAttribute("data-left-group", id);
-          names.forEach(function (name) {
-            var item = document.createElement("li");
-            item.textContent = name;
-            list.appendChild(item);
-          });
-          left.appendChild(list);
-        });
       }
 
       function answerLine(type) {
@@ -728,15 +667,11 @@
         grindNo.setAttribute("aria-pressed", state.grinding === false ? "true" : "false");
         var showResult = step === "result" && state.last && state.last.length;
         resultCard.hidden = !showResult;
-        leftCard.hidden = !showResult;
         drawBtn.hidden = !showResult;
         resetBtn.hidden = !showResult;
         changeBtn.hidden = step === "type";
         if (showResult && type) resultType.textContent = answerLine(type);
-        if (step === "result") {
-          renderResult();
-          renderLeft();
-        }
+        if (step === "result") renderResult();
       }
 
       var state = loadState();
@@ -744,7 +679,6 @@
       var resetBtn = document.getElementById("reset");
       var changeBtn = document.getElementById("change");
       var resultCard = document.getElementById("resultCard");
-      var leftCard = document.getElementById("leftCard");
       var typeCard = document.getElementById("typeCard");
       var grindCard = document.getElementById("grindCard");
       var grindType = document.getElementById("grindType");
