@@ -209,7 +209,6 @@
     <section class="joke" id="joke" aria-label="Today's joke">
       <p class="joke-q" id="jokeQ"></p>
       <button type="button" class="joke-reveal" id="jokeReveal">Show the answer</button>
-      <p class="joke-a" id="jokeA" hidden></p>
     </section>
 
     <main class="grid">
@@ -436,16 +435,17 @@
     function showTodayJoke() {
       todayJoke = jokeForDate(new Date());
       document.getElementById("jokeQ").textContent = todayJoke.q;
-      var answer = document.getElementById("jokeA");
-      answer.textContent = "";
-      answer.hidden = true;
+      var oldAnswer = document.getElementById("jokeA");
+      if (oldAnswer) oldAnswer.remove();
       document.getElementById("jokeReveal").hidden = false;
     }
     document.getElementById("jokeReveal").addEventListener("click", function () {
-      if (!todayJoke) return;
-      var answer = document.getElementById("jokeA");
+      if (!todayJoke || document.getElementById("jokeA")) return;
+      var answer = document.createElement("p");
+      answer.id = "jokeA";
+      answer.className = "joke-a";
       answer.textContent = todayJoke.a;
-      answer.hidden = false;
+      document.getElementById("joke").appendChild(answer);
       document.getElementById("jokeReveal").hidden = true;
     });
     function scheduleJokeRefresh() {
