@@ -267,11 +267,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: 10px;
       text-decoration: none;
       box-sizing: border-box;
     }
-    #resultCard, #grindCard, #menu { scroll-margin-top: 12px; }
+    #resultCard, #grindCard, #home, #changeType { scroll-margin-top: 12px; }
     footer {
       margin-top: 22px;
       color: rgba(197, 247, 240, 0.72);
@@ -293,10 +292,12 @@
     </header>
 
     <main class="stack">
+      <a class="ghost" id="home" href="index.html">Home</a>
+      <button class="ghost" id="changeType" type="button" hidden>Change Production Type</button>
+
       <section class="card" id="typeCard">
         <h2>Production type</h2>
         <div class="types" id="types" role="group" aria-label="Production type"></div>
-        <a class="ghost" href="index.html">Koyah Apps</a>
       </section>
 
       <section class="card" id="grindCard" hidden>
@@ -313,8 +314,6 @@
         <h2>Test these</h2>
         <div id="result" aria-live="polite"></div>
       </section>
-
-      <button class="ghost" id="menu" type="button" hidden>Main menu</button>
     </main>
 
     <footer>
@@ -821,13 +820,13 @@
         grindNo.setAttribute("aria-pressed", state.grinding === false ? "true" : "false");
         var showResult = step === "result" && state.last && state.last.length;
         resultCard.hidden = !showResult;
-        menuBtn.hidden = step === "type";
+        changeTypeBtn.hidden = step === "type";
         if (showResult && type) resultType.textContent = answerLine(type);
         if (step === "result") renderResult();
       }
 
       var state = loadState();
-      var menuBtn = document.getElementById("menu");
+      var changeTypeBtn = document.getElementById("changeType");
       var resultCard = document.getElementById("resultCard");
       var typeCard = document.getElementById("typeCard");
       var grindCard = document.getElementById("grindCard");
@@ -883,7 +882,7 @@
         if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
-      menuBtn.addEventListener("click", function () {
+      changeTypeBtn.addEventListener("click", function () {
         state.selected = null;
         state.grinding = null;
         state.last = null;
