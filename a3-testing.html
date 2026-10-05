@@ -289,6 +289,7 @@
       var GROUPS = {
         powder: {
           name: "Powder Fill",
+          machineName: "Auger Filler",
           encap: false,
           parts: [
             "Agitator paddles",
@@ -302,6 +303,7 @@
         },
         counter: {
           name: "Capsule Counter 2",
+          machineName: "Capsule Counter 2",
           encap: true,
           parts: [
             "Tray 1",
@@ -314,11 +316,13 @@
         },
         polisher: {
           name: "Capsule Polisher",
+          machineName: "Capsule Polisher",
           encap: true,
           parts: ["Brush", "Casing", "Ending Chute"]
         },
         encapsulators: {
           name: "Encapsulators",
+          machineName: "Encapsulator 1 / Encapsulator 2",
           encap: true,
           parts: [
             "Encapsulator auger",
@@ -330,11 +334,13 @@
         },
         pouching: {
           name: "Pouching machine",
+          machineName: "DoyPack Machine",
           encap: true,
           parts: ["Separating prongs things"]
         },
         grinding: {
           name: "Grinding",
+          machineName: "Grinder",
           encap: false,
           parts: [
             "Grinder Body",
@@ -346,11 +352,13 @@
         },
         blending: {
           name: "Blending",
+          machineName: "Ribbon Blender",
           encap: false,
           parts: ["Blade", "Center Shaft", "Lid", "Walls", "Dispensing Hole"]
         },
         tools: {
           name: "Tools",
+          machineName: "Tools",
           encap: false,
           parts: ["Scoops", "Spatula", "Table top"]
         }
@@ -637,7 +645,7 @@
           part.textContent = item.name;
           var section = document.createElement("span");
           section.className = "part-section";
-          section.textContent = GROUPS[item.group].name;
+          section.textContent = GROUPS[item.group].machineName;
           row.appendChild(part);
           row.appendChild(section);
           list.appendChild(row);
