@@ -236,7 +236,7 @@
       gap: 8px;
       margin-top: 10px;
     }
-    .mark, .swap-choice {
+    .mark {
       min-height: 40px;
       padding: 8px 12px;
       border-radius: 10px;
@@ -246,16 +246,6 @@
       font-weight: 700;
       font-size: 0.92rem;
       cursor: pointer;
-    }
-    .mark[aria-pressed="true"] {
-      background: var(--teal);
-      color: #fff;
-      border-color: var(--teal);
-    }
-    .swap-list {
-      display: grid;
-      gap: 6px;
-      margin-top: 8px;
     }
     .row-note {
       margin: 8px 0 0;
@@ -323,7 +313,6 @@
 
   <script>
     (function () {
-      var STORAGE_KEY = "koyah-a3-testing-v2";
       var ENCAP_PARTS = [
         "Encapsulator auger",
         "Empty capsule hopper",
@@ -500,14 +489,6 @@
         return null;
       }
 
-      function fullRemaining() {
-        var remaining = {};
-        GROUP_ORDER.forEach(function (id) {
-          remaining[id] = GROUPS[id].parts.slice();
-        });
-        return remaining;
-      }
-
       function maxSlots(groupId) {
         if (GROUPS[groupId].encap) return 1;
         return GROUPS[groupId].parts.length;
@@ -548,12 +529,9 @@
       function fillList() {
         var type = typeById(state.selected);
         if (!type || !testCount(type, state.grinding)) return false;
-        var remaining = JSON.parse(JSON.stringify(state.remaining));
-        var drawn = drawFrom(remaining, type, state.grinding);
+        var drawn = drawFrom(type, state.grinding);
         if (!drawn) return false;
-        state.remaining = remaining;
         state.last = drawn;
-        saveState();
         return true;
       }
 
@@ -576,20 +554,13 @@
         return slots;
       }
 
-      function take(remaining, groupId, blocked) {
-        var catalog = GROUPS[groupId].parts;
-        var open = remaining[groupId].filter(function (name) { return !blocked[name]; });
-        if (!open.length) {
-          remaining[groupId] = catalog.filter(function (name) { return !blocked[name]; });
-          open = remaining[groupId].slice();
-        }
+      function pickPart(groupId, blocked) {
+        var open = GROUPS[groupId].parts.filter(function (name) { return !blocked[name]; });
         if (!open.length) return null;
-        var pick = open[Math.floor(Math.random() * open.length)];
-        remaining[groupId] = remaining[groupId].filter(function (name) { return name !== pick; });
-        return pick;
+        return open[Math.floor(Math.random() * open.length)];
       }
 
-      function drawFrom(remaining, type, grinding) {
+      function drawFrom(type, grinding) {
         var spec = planFor(type, grinding);
         if (!spec.count) return null;
         var slots = chooseSlots(spec.required, spec.allowed, spec.count);
@@ -599,7 +570,7 @@
         for (var i = 0; i < slots.length; i++) {
           var groupId = slots[i];
           if (!blocked[groupId]) blocked[groupId] = {};
-          var name = take(remaining, groupId, blocked[groupId]);
+          var name = pickPart(groupId, blocked[groupId]);
           if (!name) return null;
           blocked[groupId][name] = true;
           drawn.push({ group: groupId, name: name });
@@ -610,121 +581,24 @@
         return drawn;
       }
 
-      function sanitizeRemaining(saved) {
-        var remaining = {};
-        GROUP_ORDER.forEach(function (id) {
-          var catalog = GROUPS[id].parts;
-          var known = {};
-          catalog.forEach(function (name) { known[name] = true; });
-          if (saved && Array.isArray(saved[id])) {
-            var seen = {};
-            remaining[id] = [];
-            saved[id].forEach(function (name) {
-              if (known[name] && !seen[name]) {
-                seen[name] = true;
-                remaining[id].push(name);
-              }
-            });
-          } else {
-            remaining[id] = catalog.slice();
-          }
-        });
-        return remaining;
-      }
-
-      function blankState() {
-        return {
-          selected: null,
-          grinding: null,
-          remaining: fullRemaining(),
-          last: null
-        };
-      }
-
-      function loadState() {
-        var state = blankState();
-        try {
-          var raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return state;
-          var data = JSON.parse(raw);
-          if (!data || typeof data !== "object") return state;
-          state.remaining = sanitizeRemaining(data.remaining);
-        } catch (err) {
-          return blankState();
-        }
-        return state;
-      }
-
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-
       function clear(node) {
         while (node.firstChild) node.removeChild(node.firstChild);
       }
 
-      function returnPart(groupId, name) {
-        var catalog = GROUPS[groupId].parts;
-        if (catalog.indexOf(name) === -1) return;
-        var pool = state.remaining[groupId];
-        if (pool.indexOf(name) !== -1) return;
-        pool.push(name);
-      }
-
-      function consumePart(groupId, name) {
-        state.remaining[groupId] = state.remaining[groupId].filter(function (part) {
-          return part !== name;
-        });
-      }
-
-      function listedElsewhere(item) {
-        var names = {};
-        if (!state.last) return names;
+      function switchRow(item) {
+        var blocked = {};
+        blocked[item.name] = true;
         state.last.forEach(function (other) {
-          if (other !== item && other.group === item.group) names[other.name] = true;
+          if (other !== item && other.group === item.group) blocked[other.name] = true;
         });
-        return names;
-      }
-
-      function switchChoices(item) {
-        var listed = listedElsewhere(item);
-        return state.remaining[item.group].filter(function (name) {
-          return name !== item.name && !listed[name];
-        });
-      }
-
-      function setMark(item, mark) {
-        if (item.mark === mark) return;
-        item.mark = mark;
-        item.picking = false;
-        item.note = "";
-        if (mark === "used") consumePart(item.group, item.name);
-        if (mark === "not") returnPart(item.group, item.name);
-        saveState();
-        renderResult();
-      }
-
-      function openSwitch(item) {
-        var choices = switchChoices(item);
-        if (!choices.length) {
-          item.picking = false;
+        var name = pickPart(item.group, blocked);
+        if (!name) {
           item.note = "No other locations left.";
           renderResult();
           return;
         }
-        item.note = "";
-        item.picking = !item.picking;
-        renderResult();
-      }
-
-      function applySwitch(item, name) {
-        returnPart(item.group, item.name);
-        consumePart(item.group, name);
         item.name = name;
-        item.mark = null;
-        item.picking = false;
         item.note = "";
-        saveState();
         renderResult();
       }
 
@@ -749,26 +623,11 @@
 
           var actions = document.createElement("div");
           actions.className = "row-actions";
-          var used = document.createElement("button");
-          used.type = "button";
-          used.className = "mark";
-          used.textContent = "Used";
-          used.setAttribute("aria-pressed", item.mark === "used" ? "true" : "false");
-          used.addEventListener("click", function () { setMark(item, "used"); });
-          var notUsed = document.createElement("button");
-          notUsed.type = "button";
-          notUsed.className = "mark";
-          notUsed.textContent = "Not used";
-          notUsed.setAttribute("aria-pressed", item.mark === "not" ? "true" : "false");
-          notUsed.addEventListener("click", function () { setMark(item, "not"); });
           var swap = document.createElement("button");
           swap.type = "button";
           swap.className = "mark";
           swap.textContent = "Switch";
-          swap.setAttribute("aria-pressed", item.picking ? "true" : "false");
-          swap.addEventListener("click", function () { openSwitch(item); });
-          actions.appendChild(used);
-          actions.appendChild(notUsed);
+          swap.addEventListener("click", function () { switchRow(item); });
           actions.appendChild(swap);
           row.appendChild(actions);
 
@@ -777,20 +636,6 @@
             note.className = "row-note";
             note.textContent = item.note;
             row.appendChild(note);
-          }
-
-          if (item.picking) {
-            var picker = document.createElement("div");
-            picker.className = "swap-list";
-            switchChoices(item).forEach(function (name) {
-              var choice = document.createElement("button");
-              choice.type = "button";
-              choice.className = "swap-choice";
-              choice.textContent = name;
-              choice.addEventListener("click", function () { applySwitch(item, name); });
-              picker.appendChild(choice);
-            });
-            row.appendChild(picker);
           }
 
           list.appendChild(row);
@@ -825,7 +670,8 @@
         if (step === "result") renderResult();
       }
 
-      var state = loadState();
+      try { localStorage.removeItem("koyah-a3-testing-v2"); } catch (err) {}
+      var state = { selected: null, grinding: null, last: null };
       var changeTypeBtn = document.getElementById("changeType");
       var resultCard = document.getElementById("resultCard");
       var typeCard = document.getElementById("typeCard");
@@ -857,8 +703,7 @@
         state.selected = button.getAttribute("data-type");
         state.grinding = null;
         state.last = null;
-        if (typeById(state.selected).askGrinding) saveState();
-        else fillList();
+        if (!typeById(state.selected).askGrinding) fillList();
         render();
         if (currentStep() === "grind") grindCard.scrollIntoView({ block: "start" });
         else if (currentStep() === "result") resultCard.scrollIntoView({ block: "start" });
@@ -886,7 +731,6 @@
         state.selected = null;
         state.grinding = null;
         state.last = null;
-        saveState();
         render();
       });
 
@@ -895,7 +739,6 @@
         state.selected = null;
         state.grinding = null;
         state.last = null;
-        saveState();
         render();
       });
 
