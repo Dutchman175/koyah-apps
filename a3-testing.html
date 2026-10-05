@@ -585,17 +585,6 @@
         return remaining;
       }
 
-      function sanitizeLast(saved) {
-        if (!Array.isArray(saved)) return null;
-        var last = [];
-        saved.forEach(function (item) {
-          if (!item || !GROUPS[item.group]) return;
-          if (GROUPS[item.group].parts.indexOf(item.name) === -1) return;
-          last.push({ group: item.group, name: item.name });
-        });
-        return last.length ? last : null;
-      }
-
       function blankState() {
         return {
           selected: null,
@@ -612,10 +601,7 @@
           if (!raw) return state;
           var data = JSON.parse(raw);
           if (!data || typeof data !== "object") return state;
-          if (typeById(data.selected)) state.selected = data.selected;
-          if (data.grinding === true || data.grinding === false) state.grinding = data.grinding;
           state.remaining = sanitizeRemaining(data.remaining);
-          state.last = sanitizeLast(data.last);
         } catch (err) {
           return blankState();
         }
@@ -762,6 +748,15 @@
         fillList();
         render();
         if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
+      });
+
+      window.addEventListener("pageshow", function (event) {
+        if (!event.persisted) return;
+        state.selected = null;
+        state.grinding = null;
+        state.last = null;
+        saveState();
+        render();
       });
 
       render();
