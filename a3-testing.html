@@ -230,7 +230,48 @@
       font-size: 0.95rem;
       line-height: 1.35;
     }
-    #resultCard, #grindCard, #draw { scroll-margin-top: 12px; }
+    .row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .mark, .swap-choice {
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--forest-deep);
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+    }
+    .mark[aria-pressed="true"] {
+      background: var(--teal);
+      color: #fff;
+      border-color: var(--teal);
+    }
+    .swap-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .row-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+    a.ghost {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+    #resultCard, #grindCard, #menu { scroll-margin-top: 12px; }
     footer {
       margin-top: 22px;
       color: rgba(197, 247, 240, 0.72);
@@ -255,6 +296,7 @@
       <section class="card" id="typeCard">
         <h2>Production type</h2>
         <div class="types" id="types" role="group" aria-label="Production type"></div>
+        <a class="ghost" href="index.html">Koyah Apps</a>
       </section>
 
       <section class="card" id="grindCard" hidden>
@@ -272,9 +314,7 @@
         <div id="result" aria-live="polite"></div>
       </section>
 
-      <button class="primary" id="draw" type="button" hidden>Next set</button>
-      <button class="ghost" id="change" type="button" hidden>Change type</button>
-      <button class="ghost" id="reset" type="button" hidden>Start the lists over</button>
+      <button class="ghost" id="menu" type="button" hidden>Main menu</button>
     </main>
 
     <footer>
@@ -285,7 +325,14 @@
   <script>
     (function () {
       var STORAGE_KEY = "koyah-a3-testing-v2";
-      var GROUP_ORDER = ["powder", "grinding", "blending", "counter", "polisher", "encapsulators", "pouching", "tools"];
+      var ENCAP_PARTS = [
+        "Encapsulator auger",
+        "Empty capsule hopper",
+        "Rings",
+        "Capsule dispenser",
+        "Pressing prongs"
+      ];
+      var GROUP_ORDER = ["powder", "grinding", "blending", "counter", "polisher", "encap1", "encap2", "pouching", "tools"];
       var GROUPS = {
         powder: {
           name: "Powder Fill",
@@ -320,17 +367,17 @@
           encap: true,
           parts: ["Brush", "Casing", "Ending Chute"]
         },
-        encapsulators: {
-          name: "Encapsulators",
-          machineName: "Encapsulator 1 / Encapsulator 2",
+        encap1: {
+          name: "Encapsulator 1",
+          machineName: "Encapsulator 1",
           encap: true,
-          parts: [
-            "Encapsulator auger",
-            "Empty capsule hopper",
-            "Rings",
-            "Capsule dispenser",
-            "Pressing prongs"
-          ]
+          parts: ENCAP_PARTS.slice()
+        },
+        encap2: {
+          name: "Encapsulator 2",
+          machineName: "Encapsulator 2",
+          encap: true,
+          parts: ENCAP_PARTS.slice()
         },
         pouching: {
           name: "Pouching machine",
@@ -370,8 +417,9 @@
           askGrinding: true,
           yes: 4,
           no: 3,
-          required: ["encapsulators"],
-          allowed: ["counter", "polisher", "encapsulators", "pouching", "tools"]
+          required: [],
+          requiredOneOf: ["encap1", "encap2"],
+          allowed: ["counter", "polisher", "encap1", "encap2", "pouching", "tools"]
         },
         {
           id: "encapsulation-blend",
@@ -379,8 +427,9 @@
           askGrinding: true,
           yes: 5,
           no: 4,
-          required: ["encapsulators", "blending"],
-          allowed: ["counter", "polisher", "encapsulators", "pouching", "blending", "tools"]
+          required: ["blending"],
+          requiredOneOf: ["encap1", "encap2"],
+          allowed: ["counter", "polisher", "encap1", "encap2", "pouching", "blending", "tools"]
         },
         {
           id: "powder",
@@ -423,8 +472,9 @@
           askGrinding: true,
           yes: 4,
           no: 3,
-          required: ["encapsulators"],
-          allowed: ["polisher", "encapsulators", "tools"]
+          required: [],
+          requiredOneOf: ["encap1", "encap2"],
+          allowed: ["polisher", "encap1", "encap2", "tools"]
         },
         {
           id: "wip-grind",
@@ -474,21 +524,19 @@
 
       function planFor(type, grinding) {
         var required = type.required.slice();
+        if (type.requiredOneOf && type.requiredOneOf.length) {
+          required.push(type.requiredOneOf[Math.floor(Math.random() * type.requiredOneOf.length)]);
+        }
         var allowed = type.allowed.slice();
         if (type.askGrinding && grinding === true) {
           required.push("grinding");
-          allowed.push("grinding");
+          if (allowed.indexOf("grinding") === -1) allowed.push("grinding");
         }
         return {
           required: required,
           allowed: allowed,
           count: testCount(type, grinding)
         };
-      }
-
-      function ready() {
-        var type = typeById(state.selected);
-        return !!(type && testCount(type, state.grinding));
       }
 
       function currentStep() {
@@ -616,6 +664,71 @@
         while (node.firstChild) node.removeChild(node.firstChild);
       }
 
+      function returnPart(groupId, name) {
+        var catalog = GROUPS[groupId].parts;
+        if (catalog.indexOf(name) === -1) return;
+        var pool = state.remaining[groupId];
+        if (pool.indexOf(name) !== -1) return;
+        pool.push(name);
+      }
+
+      function consumePart(groupId, name) {
+        state.remaining[groupId] = state.remaining[groupId].filter(function (part) {
+          return part !== name;
+        });
+      }
+
+      function listedElsewhere(item) {
+        var names = {};
+        if (!state.last) return names;
+        state.last.forEach(function (other) {
+          if (other !== item && other.group === item.group) names[other.name] = true;
+        });
+        return names;
+      }
+
+      function switchChoices(item) {
+        var listed = listedElsewhere(item);
+        return state.remaining[item.group].filter(function (name) {
+          return name !== item.name && !listed[name];
+        });
+      }
+
+      function setMark(item, mark) {
+        if (item.mark === mark) return;
+        item.mark = mark;
+        item.picking = false;
+        item.note = "";
+        if (mark === "used") consumePart(item.group, item.name);
+        if (mark === "not") returnPart(item.group, item.name);
+        saveState();
+        renderResult();
+      }
+
+      function openSwitch(item) {
+        var choices = switchChoices(item);
+        if (!choices.length) {
+          item.picking = false;
+          item.note = "No other locations left.";
+          renderResult();
+          return;
+        }
+        item.note = "";
+        item.picking = !item.picking;
+        renderResult();
+      }
+
+      function applySwitch(item, name) {
+        returnPart(item.group, item.name);
+        consumePart(item.group, name);
+        item.name = name;
+        item.mark = null;
+        item.picking = false;
+        item.note = "";
+        saveState();
+        renderResult();
+      }
+
       function renderResult() {
         var result = document.getElementById("result");
         clear(result);
@@ -634,6 +747,53 @@
           section.textContent = GROUPS[item.group].machineName;
           row.appendChild(part);
           row.appendChild(section);
+
+          var actions = document.createElement("div");
+          actions.className = "row-actions";
+          var used = document.createElement("button");
+          used.type = "button";
+          used.className = "mark";
+          used.textContent = "Used";
+          used.setAttribute("aria-pressed", item.mark === "used" ? "true" : "false");
+          used.addEventListener("click", function () { setMark(item, "used"); });
+          var notUsed = document.createElement("button");
+          notUsed.type = "button";
+          notUsed.className = "mark";
+          notUsed.textContent = "Not used";
+          notUsed.setAttribute("aria-pressed", item.mark === "not" ? "true" : "false");
+          notUsed.addEventListener("click", function () { setMark(item, "not"); });
+          var swap = document.createElement("button");
+          swap.type = "button";
+          swap.className = "mark";
+          swap.textContent = "Switch";
+          swap.setAttribute("aria-pressed", item.picking ? "true" : "false");
+          swap.addEventListener("click", function () { openSwitch(item); });
+          actions.appendChild(used);
+          actions.appendChild(notUsed);
+          actions.appendChild(swap);
+          row.appendChild(actions);
+
+          if (item.note) {
+            var note = document.createElement("p");
+            note.className = "row-note";
+            note.textContent = item.note;
+            row.appendChild(note);
+          }
+
+          if (item.picking) {
+            var picker = document.createElement("div");
+            picker.className = "swap-list";
+            switchChoices(item).forEach(function (name) {
+              var choice = document.createElement("button");
+              choice.type = "button";
+              choice.className = "swap-choice";
+              choice.textContent = name;
+              choice.addEventListener("click", function () { applySwitch(item, name); });
+              picker.appendChild(choice);
+            });
+            row.appendChild(picker);
+          }
+
           list.appendChild(row);
         });
         result.appendChild(list);
@@ -661,17 +821,13 @@
         grindNo.setAttribute("aria-pressed", state.grinding === false ? "true" : "false");
         var showResult = step === "result" && state.last && state.last.length;
         resultCard.hidden = !showResult;
-        drawBtn.hidden = !showResult;
-        resetBtn.hidden = !showResult;
-        changeBtn.hidden = step === "type";
+        menuBtn.hidden = step === "type";
         if (showResult && type) resultType.textContent = answerLine(type);
         if (step === "result") renderResult();
       }
 
       var state = loadState();
-      var drawBtn = document.getElementById("draw");
-      var resetBtn = document.getElementById("reset");
-      var changeBtn = document.getElementById("change");
+      var menuBtn = document.getElementById("menu");
       var resultCard = document.getElementById("resultCard");
       var typeCard = document.getElementById("typeCard");
       var grindCard = document.getElementById("grindCard");
@@ -727,27 +883,12 @@
         if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
-      drawBtn.addEventListener("click", function () {
-        if (!ready()) return;
-        fillList();
-        render();
-        resultCard.scrollIntoView({ block: "start" });
-      });
-
-      changeBtn.addEventListener("click", function () {
+      menuBtn.addEventListener("click", function () {
         state.selected = null;
         state.grinding = null;
         state.last = null;
         saveState();
         render();
-      });
-
-      resetBtn.addEventListener("click", function () {
-        state.remaining = fullRemaining();
-        state.last = null;
-        fillList();
-        render();
-        if (!resultCard.hidden) resultCard.scrollIntoView({ block: "start" });
       });
 
       window.addEventListener("pageshow", function (event) {
