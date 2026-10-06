@@ -585,7 +585,50 @@
         while (node.firstChild) node.removeChild(node.firstChild);
       }
 
-      function switchRow(item) {
+      function allowedGroupIds(type, grinding) {
+        var allowed = type.allowed.slice();
+        if (type.askGrinding && grinding === true && allowed.indexOf("grinding") === -1) {
+          allowed.push("grinding");
+        }
+        return allowed;
+      }
+
+      function groupStillValid(type, grinding, present) {
+        var i;
+        for (i = 0; i < type.required.length; i++) {
+          if (!present[type.required[i]]) return false;
+        }
+        if (type.askGrinding && grinding === true && !present.grinding) return false;
+        if (type.requiredOneOf && type.requiredOneOf.length) {
+          var found = false;
+          for (i = 0; i < type.requiredOneOf.length; i++) {
+            if (present[type.requiredOneOf[i]]) found = true;
+          }
+          if (!found) return false;
+        }
+        return true;
+      }
+
+      function replacementGroups(item) {
+        var type = typeById(state.selected);
+        if (!type || !state.last) return [];
+        var onScreen = {};
+        var present = {};
+        state.last.forEach(function (row) {
+          onScreen[row.group] = true;
+          if (row !== item) present[row.group] = true;
+        });
+        var options = [];
+        allowedGroupIds(type, state.grinding).forEach(function (id) {
+          if (onScreen[id]) return;
+          present[id] = true;
+          if (groupStillValid(type, state.grinding, present)) options.push(id);
+          delete present[id];
+        });
+        return options;
+      }
+
+      function switchSameMachine(item) {
         var blocked = {};
         blocked[item.name] = true;
         state.last.forEach(function (other) {
@@ -597,6 +640,25 @@
           renderResult();
           return;
         }
+        item.name = name;
+        item.note = "";
+        renderResult();
+      }
+
+      function switchRow(item) {
+        var options = replacementGroups(item);
+        if (!options.length) {
+          switchSameMachine(item);
+          return;
+        }
+        var groupId = options[Math.floor(Math.random() * options.length)];
+        var name = pickPart(groupId, {});
+        if (!name) {
+          item.note = "No other locations left.";
+          renderResult();
+          return;
+        }
+        item.group = groupId;
         item.name = name;
         item.note = "";
         renderResult();
