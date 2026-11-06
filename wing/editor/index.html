@@ -37,47 +37,49 @@ function makeC(name,a,b){const po=CAD3(a),p1=CAD3(b),axis=p1.clone().sub(po).nor
  idx.push(0,2,3,0,3,1,4*N,4*N+1,4*N+3,4*N,4*N+3,4*N+2);const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();const o=mesh(geo,materials.blue,clipGroup,name);o.userData.p0=po.toArray();o.userData.p1=p1.toArray();o.userData.bore=3.275;return o}
 const clipTop=makeC('Top straight C-channel',TL.clone().setX(12.65).toArray(),[47.625,0,152.4]);const clipLeg=makeC('Angled straight C-channel',BR.clone().addScaledVector(UP,-.5).toArray(),BE.clone().addScaledVector(UP,.2).toArray());
 console.log('WING_STAGES clips OK');
-// Option B twisted ribbon: root edge on rod, 24.5 mm outward chord, 31 mm down-chord.
-// A four-column cubic row controls the outward/downward twist sweep.
-function root(t){const ANG=Math.atan2(UP.x,UP.z),BL0=BR.clone().addScaledVector(UP,14);return BL0.clone().lerp(BE,t).add(CAD(1.8,4.5,0)).addScaledVector(CAD(-1,0,1.6),Math.sin(Math.PI*(1-t)))}
-// Original Option B 37 mm chord, set down(val) value; no backwards tilt into auger.
-function bPoint(t,u){const r=root(t),a=18*Math.PI/180,inner=r.clone().add(CAD(-37*Math.cos(a),-Math.tan(30*Math.PI/180)*30,37*Math.sin(a))),p=r.lerp(inner,u),phase=2*Math.PI*(t-.5);p.y+=7.5*Math.sin(Math.PI*u)*Math.sin(phase);p.z+=4*Math.sin(Math.PI*u)*Math.cos(phase);return p}
-function topPoint(t,u){return CAD(16+31.625*t,4.5,152.4).lerp(bPoint(1,1-t),u)}
-const controls0=[0,.333333333,.666666666,1].map(u=>bPoint(0,u)),controls1=[0,.333333333,.666666666,1].map(u=>bPoint(.5,u)),controls2=[0,.333333333,.666666666,1].map(u=>bPoint(1,u));
-let defaults=[...controls0,...controls1,...controls2,CAD(16,4.5,152.4),CAD(31.8125,4.5,152.4),CAD(47.625,4.5,152.4)];
-let ps=defaults.map(v=>v.clone());const DEFAULT=()=>defaults.map(v=>v.clone());
+// Option B triangle wing: one continuous patch filling the inside of the 7.
+// Front view is a solid triangle: top edge on the top leg, right edge on the angled
+// leg, free edge (hypotenuse) facing the auger. Bend stays open — no clip there.
+const YT=-4.5; // trailing side (clockwise from top)
+const LEAD=18*Math.PI/180, PITCH=30*Math.PI/180;
+function onAngled(s){return BR.clone().addScaledVector(UP,s).setY(YT)}
+function onTop(x){return CAD(THREE.MathUtils.clamp(x,12.7,47.625),YT,152.4)}
+function lerp3(a,b,t){return a.clone().lerp(b,t)}
+function bias(p,amount){return p.clone().add(CAD(-amount*Math.cos(LEAD),0,amount*Math.sin(LEAD)-Math.tan(PITCH)*amount*0.35))}
+// Triangle corners: A top-left near auger, D top-right on top clip, E bottom on angled clip.
+const A=onTop(14.5), D=onTop(46.0), E=onAngled(28), M=onAngled(75), U=onAngled(115);
+const freeMid=bias(lerp3(A,E,0.55),10), freeBot=bias(lerp3(A,E,0.92),6);
+let defaults=[
+ E, bias(lerp3(E,freeBot,1/3),2), bias(lerp3(E,freeBot,2/3),4), freeBot,
+ M, bias(lerp3(M,freeMid,1/3),3), bias(lerp3(M,freeMid,2/3),6), freeMid,
+ U, D, lerp3(D,A,0.5), A
+];
+let ps=defaults.map(v=>v.clone()); const DEFAULT=()=>defaults.map(v=>v.clone());
 
+const ATTACHED=new Set([0,4,8,9,10,11]); // orange: 0/4/8 angled, 9/10/11 top leg
 const dotGroup=new THREE.Group();dotGroup.name='Editable control handles';assembly.add(dotGroup);const handles=[];
-for(let i=0;i<12;i++){const attached=[0,4,8,9].includes(i),h=mesh(new THREE.SphereGeometry(attached?2.3:2.5,24,18),new THREE.MeshStandardMaterial({color:attached?0xffa527:0xffd72c,emissive:attached?0x572002:0x3f2b00,emissiveIntensity:.4,depthTest:false,depthWrite:false}),dotGroup,'Control '+(i+1));h.renderOrder=99;h.userData.index=i;handles.push(h)}
+for(let i=0;i<12;i++){const attached=ATTACHED.has(i),h=mesh(new THREE.SphereGeometry(attached?2.3:2.5,24,18),new THREE.MeshStandardMaterial({color:attached?0xffa527:0xffd72c,emissive:attached?0x572002:0x3f2b00,emissiveIntensity:.4,depthTest:false,depthWrite:false}),dotGroup,'Control '+(i+1));h.renderOrder=99;h.userData.index=i;handles.push(h)}
 window.initialPoints=()=>defaults.map(p=>p.toArray());
-function quad(a,b,c,t){const aa=a.clone().lerp(b,t),bb=b.clone().lerp(c,t);return aa.lerp(bb,t)}
-function sections(u){return [0,1,2].map(r=>b3(ps[r*4],ps[r*4+1],ps[r*4+2],ps[r*4+3],u))}
-// Cubic Bézier across the 37 mm blade width.
 function b3(a,b,c,d,t){const ab=a.clone().lerp(b,t),bc=b.clone().lerp(c,t),cd=c.clone().lerp(d,t),abbc=ab.lerp(bc,t),bccd=bc.lerp(cd,t);return abbc.lerp(bccd,t)}
-// Cubic Catmull-Rom across the three span rows, then a smoothly blended return top-web.
+function sections(u){return [0,1,2].map(r=>b3(ps[r*4],ps[r*4+1],ps[r*4+2],ps[r*4+3],u))}
+// Single continuous cubic B-spline surface — no separate top web, no gap or pinch.
 function catmull(a,b,c,d,t){return b.clone().multiplyScalar(2).addScaledVector(c.clone().sub(a),t).addScaledVector(a.clone().multiplyScalar(2).sub(b.clone().multiplyScalar(5)).addScaledVector(c,4).sub(d),t*t).addScaledVector(b.clone().multiplyScalar(3).sub(a).addScaledVector(c,-3).add(d),t*t*t).multiplyScalar(.5)}
-function blade(t,u){const q=Math.min(.9999999,Math.max(0,t))*2,i=Math.min(1,Math.floor(q)),k=q-i,rows=sections(u),[a,b,c,d]=[rows[Math.max(0,i-1)],rows[i],rows[i+1],rows[Math.min(2,i+2)]];
- // De Boor cubic B-spline with knot vector [0,0,0,0,0.5,1,1,1,1],
- // evaluated over its two spans: exact root, midpoint and upper-rod attachment.
- let weights=i===0?[(1-k)**3,(2*k**3-3*k*k+1)/3,(-2*k**3+2*k*k+k)/3,k**3/2]:[(1-k)**3/2,(-2*k**3+4.5*k*k-3*k+1)/3,(2*k**3-2*k*k-k+1)/3,k**3/2];
- return a.multiplyScalar(weights[0]).addScaledVector(c,weights[2]).addScaledVector(d,weights[3]).addScaledVector(b,weights[1])}
-function web(t,u){const a=topPoint(t,0),mid=ps[10].clone(),b=bPoint(1,1-t);return quad(a.clone().lerp(b,.12),mid,b,u)}
-const allSurfaces=[blade,web];let wingMesh;const wingSurfaces=new THREE.Group();assembly.add(wingSurfaces);
-function buildWing(){for(const fn of allSurfaces){let meshObject=wingSurfaces.children[allSurfaces.indexOf(fn)];const NT=96,NU=48,positions=[],idx=[],points=[];for(let i=0;i<=NT;i++)for(let j=0;j<=NU;j++){const p=fn(i/NT,j/NU);positions.push(p.x,p.y,p.z);points.push(p)}for(let i=0;i<NT;i++)for(let j=0;j<NU;j++){const a=i*(NU+1)+j,b=a+NU+1;idx.push(a,b,a+1,a+1,b,b+1)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(idx);g.computeVertexNormals();if(!meshObject)mesh(g,materials.wing,wingSurfaces,'Smooth parametric wing');else{meshObject.geometry.dispose();meshObject.geometry=g}check(points)}serialize();document.getElementById('state').textContent=`12 editable points · 26,800 smooth-surface triangles\nLeg angle 16.2602° · 0.5 in top / 1.125 in bottom offsets\nApprox. clearance ${latestClearance.toFixed(1)} mm · overhang limit 6.35 mm`}
+// Catmull-Rom across the three span rows — interpolates endpoints, no gap/pinch/overshoot.
+function blade(t,u){const rows=sections(u),q=Math.min(1,Math.max(0,t))*2,i=Math.min(1,Math.floor(q)),k=q-i;
+ return catmull(rows[Math.max(0,i-1)],rows[i],rows[Math.min(2,i+1)],rows[Math.min(2,i+2)],k)}
+const allSurfaces=[blade]; const wingSurfaces=new THREE.Group();assembly.add(wingSurfaces);
+function buildWing(){for(const fn of allSurfaces){let meshObject=wingSurfaces.children[allSurfaces.indexOf(fn)];const NT=96,NU=48,positions=[],idx=[],points=[];for(let i=0;i<=NT;i++)for(let j=0;j<=NU;j++){const p=fn(i/NT,j/NU);positions.push(p.x,p.y,p.z);points.push(p)}for(let i=0;i<NT;i++)for(let j=0;j<NU;j++){const a=i*(NU+1)+j,b=a+NU+1;idx.push(a,b,a+1,a+1,b,b+1)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(idx);g.computeVertexNormals();if(!meshObject)mesh(g,materials.wing,wingSurfaces,'Smooth parametric wing');else{meshObject.geometry.dispose();meshObject.geometry=g}check(points)}serialize();document.getElementById('state').textContent=`12 editable points · one triangle wing · 9,216 smooth-surface triangles\nLeg angle 16.2602° · 0.5 in top / 1.125 in bottom offsets\nApprox. clearance ${latestClearance.toFixed(1)} mm · overhang limit 6.35 mm`}
 let latestClearance=0;
-function check(points){let min=100,over=-100;for(const p of points){if(p.z>=0&&p.z<=177.8){const zRatio=p.z/177.8,flangeX=-12,zz=3;min=Math.min(min, p.x>flangeX?31.5:Math.hypot(p.x+43.75,p.y)-31.75)}over=Math.max(over,p.x-(BE.x/-0.8)-(BE.x+6.35)/.8)}
- // V10 ribbon point set already respects max X under the angled leg's terminal face + 6.35.
- over=Math.max(0,...rootSectionsMax().map(p=>p.x-(BE.x+6.35)));latestClearance=min;const violation=min<3||over>6.35;materials.wing.color.set(violation?0xef792b:0x1d71d9);state.className=violation?'warn':'';warning.style.display=violation?'block':'none';warning.textContent=violation?(min<3?'Approximate wing/flight clearance below 3 mm. ':'')+(over>6.35?'Wing exceeds ¼-inch angled-leg limit. ':''):''}
-function rootSectionsMax(){return ps.slice(8,12)}
-function serialize(){json.value=JSON.stringify({shape:'Option B twisted ribbon',active_handles:12,frame:'CAD Z-up: [x,y,z], mm',rod_angle_deg:16.2602047083,bore:6.55,control_points:ps.map(p=>p.toArray().map(x=>+x.toFixed(2)))})}
+function check(points){let min=100,over=-100;for(const p of points){if(p.z>=0&&p.z<=177.8){min=Math.min(min,Math.hypot(p.x+43.75,p.y)-31.75)}
+ // Overhang past the angled leg in +X (away from auger), limit 6.35 mm.
+ const s=UP.z!==0?p.z/UP.z:0, rodX=BR.x+UP.x*s; over=Math.max(over,p.x-(rodX+6.35))}
+ latestClearance=min;const violation=min<3||over>0;materials.wing.color.set(violation?0xef792b:0x1d71d9);state.className=violation?'warn':'';warning.style.display=violation?'block':'none';warning.textContent=violation?(min<3?'Approximate wing/flight clearance below 3 mm. ':'')+(over>0?'Wing exceeds ¼-inch angled-leg limit. ':''):''}
+function serialize(){json.value=JSON.stringify({shape:'Option B triangle wing',active_handles:12,frame:'CAD Z-up: [x,y,z], mm',rod_angle_deg:16.2602047083,bore:6.55,blade_mm:4.8,pitch_deg:30,lead_deg:18,control_points:ps.map(p=>p.toArray().map(x=>+x.toFixed(2)))})}
 function refresh(){for(const h of handles)h.position.copy(ps[h.userData.index]);buildWing()}
-function rodExtent(i,q){if(i===0)return BR.clone().addScaledVector(UP,THREE.MathUtils.clamp(q,0,29)).add(CAD(-2,-4.5,0));if(i===4)return root(.5).addScaledVector(UP,q-64);if(i===8)return root(1).addScaledVector(UP,q-116);return CAD(THREE.MathUtils.clamp(q,12.7,47.625),-4.5,152.4)}
-const ray = new THREE.Raycaster(),pointer=new THREE.Vector2();let drag=null;
+const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let drag=null;
 function cast(e){pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);ray.setFromCamera(pointer,camera);const intersections=ray.intersectObjects(handles,false);return intersections.length?intersections[0].object:null}
 renderer.domElement.addEventListener('pointerdown',e=>{const h=cast(e);if(!h||e.button!==0)return;e.stopImmediatePropagation();controls.enabled=false;const i=h.userData.index,p=ps[i].clone();drag={i,start:p.clone(),startPointer:{x:e.clientX,y:e.clientY},lastY:e.clientY,plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),assembly.localToWorld(p.clone()))};renderer.domElement.setPointerCapture(e.pointerId)},{capture:true});
-renderer.domElement.addEventListener('pointermove',e=>{if(!drag){renderer.domElement.style.cursor=cast(e)?'move':'grab';return}cast(e);const i=drag.i,p=new THREE.Vector3();if([0,4,8,9].includes(i)){if(ray.ray.intersectPlane(drag.plane,p)){p.z=5;assembly.worldToLocal(p);const isTop=i===9,a=isTop?tl0():root(i===0?0:i===4?.5:1),b=isTop?tl1():a.clone().addScaledVector(UP,29),line=new THREE.Line3(a,b);line.closestPointToPoint(p,true,p);if(isTop)ps[i].set(THREE.MathUtils.clamp(p.x,12.7,47.625),-4.5,152.4);else{const center=root(i===0?0:i===4?.5:1),distance=p.clone().sub(center).dot(UP),ext=i===0?29:i===4?38:20;ps[i].copy(center).addScaledVector(UP,THREE.MathUtils.clamp(distance,-ext,ext))}}}else if(e.shiftKey){const depth=camera.position.distanceTo(controls.target)/innerHeight*1.55,cameraOut=new THREE.Vector3();camera.getWorldDirection(cameraOut);assembly.worldToLocal(assembly.localToWorld(cameraOut.clone())); // The drag basis must be mapped into CAD, not applied as a world-space offset.
- const inv=new THREE.Matrix4().extractRotation(assembly.matrixWorld).invert(),axis=cameraOut.applyMatrix4(inv);const start=drag.start.clone().addScaledVector(axis,-(e.clientY-drag.startPointer.y)*depth);ps[i].copy(start);drag.lastY=e.clientY}else{ray.ray.intersectPlane(drag.plane,p);assembly.worldToLocal(p);ps[i].copy(p)}refresh();e.stopImmediatePropagation()},{capture:true});
-function tl0(){return CAD(12.7,-4.5,152.4)}function tl1(){return CAD(47.625,-4.5,152.4)}
+renderer.domElement.addEventListener('pointermove',e=>{if(!drag){renderer.domElement.style.cursor=cast(e)?'move':'grab';return}const i=drag.i,p=new THREE.Vector3();if(ATTACHED.has(i)){if(ray.ray.intersectPlane(drag.plane,p)){assembly.worldToLocal(p);const isTop=i>=9;if(isTop){ps[i].copy(onTop(p.x))}else{const center=i===0?E.clone():i===4?M.clone():U.clone();const distance=p.clone().sub(center).dot(UP);const ext=i===0?24:i===4?36:22;ps[i].copy(center).addScaledVector(UP,THREE.MathUtils.clamp(distance,-ext,ext)).setY(YT)}}}else if(e.shiftKey){const depth=camera.position.distanceTo(controls.target)/innerHeight*1.55,cameraOut=new THREE.Vector3();camera.getWorldDirection(cameraOut);const inv=new THREE.Matrix4().extractRotation(assembly.matrixWorld).invert(),axis=cameraOut.applyMatrix4(inv);ps[i].copy(drag.start.clone().addScaledVector(axis,-(e.clientY-drag.startPointer.y)*depth));drag.lastY=e.clientY}else{ray.ray.intersectPlane(drag.plane,p);assembly.worldToLocal(p);ps[i].copy(p)}refresh();e.stopImmediatePropagation()},{capture:true});
 function release(){if(drag){drag=null;controls.enabled=true;refresh()}}renderer.domElement.addEventListener('pointerup',release);renderer.domElement.addEventListener('pointercancel',release);renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('reset').onclick=()=>{ps=DEFAULT();drag=null;controls.enabled=true;refresh()};document.getElementById('points').onclick=e=>{dotGroup.visible=!dotGroup.visible;e.target.textContent=dotGroup.visible?'Hide dots':'Show dots'};document.getElementById('clips').onclick=e=>{clipGroup.visible=!clipGroup.visible;e.target.textContent=clipGroup.visible?'Hide clips':'Show clips'};
 document.getElementById('copyshape').onclick=async()=>{json.focus();json.select();try{await navigator.clipboard.writeText(json.value);copyshape.textContent='Copied!'}catch(_){document.execCommand('copy');copyshape.textContent='Selected — Ctrl+C'}setTimeout(()=>copyshape.textContent='Copy shape',1800)};
@@ -86,5 +88,4 @@ refresh();assembly.updateMatrixWorld(true);controls.update();renderer.render(sce
 window.EDITOR={get points(){return ps.map(p=>p.toArray())},screen:()=>handles.map(h=>{const v=assembly.localToWorld(h.position.clone()).project(camera);return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2}}),parts:()=>scene.getObjectByName('Single CAD coordinate frame').children.map(o=>({name:o.name,geoBounds:o.geometry?.boundingBox? [o.geometry.boundingBox.min.toArray(),o.geometry.boundingBox.max.toArray()]:undefined})),clips:()=>[clipTop,clipLeg].map(c=>({a:c.userData.p0,b:c.userData.p1,bore:c.userData.bore})),camera,scene,assembly,controls};
 window.audit={rod:{TL:TL.toArray(),BE:BE.toArray(),BR:BR.toArray(),angle_deg:Math.atan2(UP.x,UP.z)*180/Math.PI},auger:{axisX:-43.75,shaftRadius:31.75,minZ:0,maxZ:177.8},legLength:BR.distanceTo(BE),clearances:{top_edge_mm:12.7-(13-43.75)-3.175,bottom_edge_mm:28.575+0}};
 renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
-
 </script></body></html>
